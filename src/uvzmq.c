@@ -84,14 +84,14 @@ int uvzmq_socket_new(uv_loop_t *loop, void *zmq_sock,
                      uvzmq_socket_t **socket)
 {
     if (!loop || !zmq_sock || !socket) {
-        uvzmq_last_error = EINVAL;
-        return -1;
+        uvzmq_last_error = UVZMQ_ERROR_INVALID_PARAM;
+        return UVZMQ_ERROR_INVALID_PARAM;
     }
 
     uvzmq_socket_t *sock = UVZMQ_MALLOC(sizeof(uvzmq_socket_t));
     if (!sock) {
-        uvzmq_last_error = ENOMEM;
-        return -2;
+        uvzmq_last_error = UVZMQ_ERROR_NOMEM;
+        return UVZMQ_ERROR_NOMEM;
     }
 
     memset(sock, 0, sizeof(uvzmq_socket_t));
@@ -109,16 +109,16 @@ int uvzmq_socket_new(uv_loop_t *loop, void *zmq_sock,
     if (rc != 0) {
         fprintf(stderr, "[UVZMQ] zmq_getsockopt ZMQ_FD failed: %d (errno=%d)\n", rc, errno);
         UVZMQ_FREE(sock);
-        uvzmq_last_error = errno;
-        return -1;
+        uvzmq_last_error = UVZMQ_ERROR_GETSOCKOPT_FAILED;
+        return UVZMQ_ERROR_GETSOCKOPT_FAILED;
     }
 
     // Use uv_poll for event-driven I/O
     uv_poll_t *poll_handle = UVZMQ_MALLOC(sizeof(uv_poll_t));
     if (!poll_handle) {
         UVZMQ_FREE(sock);
-        uvzmq_last_error = ENOMEM;
-        return -2;
+        uvzmq_last_error = UVZMQ_ERROR_NOMEM;
+        return UVZMQ_ERROR_NOMEM;
     }
 
     poll_handle->data = sock;
@@ -129,8 +129,8 @@ int uvzmq_socket_new(uv_loop_t *loop, void *zmq_sock,
         fprintf(stderr, "[UVZMQ] uv_poll_init failed: %d\n", rc);
         UVZMQ_FREE(poll_handle);
         UVZMQ_FREE(sock);
-        uvzmq_last_error = rc;
-        return -1;
+        uvzmq_last_error = UVZMQ_ERROR_INIT_FAILED;
+        return UVZMQ_ERROR_INIT_FAILED;
     }
 
     rc = uv_poll_start(poll_handle, UV_READABLE, uvzmq_poll_callback);
@@ -139,42 +139,44 @@ int uvzmq_socket_new(uv_loop_t *loop, void *zmq_sock,
         uv_close((uv_handle_t *)poll_handle, NULL);
         UVZMQ_FREE(poll_handle);
         UVZMQ_FREE(sock);
-        uvzmq_last_error = rc;
-        return -1;
+        uvzmq_last_error = UVZMQ_ERROR_POLL_START_FAILED;
+        return UVZMQ_ERROR_POLL_START_FAILED;
     }
 
     *socket = sock;
-    return 0;
+    return UVZMQ_OK;
 }
 
 int uvzmq_socket_close(uvzmq_socket_t *socket)
 {
     if (!socket || socket->closed) {
-        return -1;
+        return UVZMQ_ERROR_INVALID_PARAM;
     }
 
     socket->closed = 1;
-    return 0;
+    return UVZMQ_OK;
 }
 
 int uvzmq_socket_free(uvzmq_socket_t *socket)
 {
     if (!socket) {
-        return -1;
+        return UVZMQ_ERROR_INVALID_PARAM;
     }
 
     if (!socket->closed) {
         uvzmq_socket_close(socket);
     }
 
-    // Stop poll handle (no need to close - poll handles don't hold resources)
+    // Stop poll handle before freeing
+    // Note: uv_poll handles don't need uv_close, just uv_poll_stop and free
     if (socket->poll_handle) {
         uv_poll_stop(socket->poll_handle);
         UVZMQ_FREE(socket->poll_handle);
+        socket->poll_handle = NULL;
     }
 
     UVZMQ_FREE(socket);
-    return 0;
+    return UVZMQ_OK;
 }
 
 void *uvzmq_get_zmq_socket(uvzmq_socket_t *socket)
@@ -195,7 +197,7 @@ void *uvzmq_get_user_data(uvzmq_socket_t *socket)
 int uvzmq_poll(uvzmq_socket_t *socket, int events, int timeout_ms)
 {
     if (!socket) {
-        return -1;
+        return UVZMQ_ERROR_INVALID_PARAM;
     }
 
     zmq_pollitem_t item;
@@ -239,9 +241,14 @@ int uvzmq_errno(void)
 const char *uvzmq_strerror(int err)
 {
     switch (err) {
-        case 0: return "Success";
-        case ENOMEM: return "Out of memory";
-        case EINVAL: return "Invalid argument";
+        case UVZMQ_OK: return "Success";
+        case UVZMQ_ERROR_INVALID_PARAM: return "Invalid parameter";
+        case UVZMQ_ERROR_NOMEM: return "Out of memory";
+        case UVZMQ_ERROR_INIT_FAILED: return "Poll initialization failed";
+        case UVZMQ_ERROR_POLL_START_FAILED: return "Poll start failed";
+        case UVZMQ_ERROR_GETSOCKOPT_FAILED: return "Get socket option failed";
+        case ENOMEM: return "Out of memory (errno)";
+        case EINVAL: return "Invalid argument (errno)";
         default: return "Unknown error";
     }
 }
