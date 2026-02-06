@@ -113,7 +113,7 @@ int main(void)
     
     // Run event loop
     while (keep_running) {
-        uv_run(&loop, UV_RUN_ONCE);
+        uv_run(&loop, UV_RUN_NOWAIT);
         usleep(10000);  // 10ms sleep to prevent busy waiting
     }
     
