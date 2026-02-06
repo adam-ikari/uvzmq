@@ -14,12 +14,10 @@
 #endif
 
 /* Thread-local error storage */
-#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
-#define UVZMQ_THREAD_LOCAL _Thread_local
-#elif defined(__GNUC__)
+#if defined(__GNUC__) || defined(__clang__)
 #define UVZMQ_THREAD_LOCAL __thread
 #else
-#error "Thread-local storage not supported"
+#error "Thread-local storage not supported on this compiler"
 #endif
 
 static UVZMQ_THREAD_LOCAL int uvzmq_last_error = 0;
