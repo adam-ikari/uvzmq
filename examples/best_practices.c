@@ -6,16 +6,21 @@
 #include <unistd.h>
 #include <signal.h>
 
-static volatile int keep_running = 1;
+static volatile sig_atomic_t stop_requested = 0;
+static uv_async_t async_handle;
+
+static void async_callback(uv_async_t *handle)
+{
+    (void)handle;
+    stop_requested = 1;
+}
 
 static void signal_handler(int sig)
 {
     (void)sig;
-    printf("\n[INFO] Received signal, shutting down...\n");
-    keep_running = 0;
+    uv_async_send(&async_handle);
 }
 
-// Example: Proper resource management
 int main(void)
 {
     printf("========================================\n");
@@ -24,8 +29,12 @@ int main(void)
     fflush(stdout);
     
     // Setup signal handler for graceful shutdown
-    signal(SIGINT, signal_handler);
-    signal(SIGTERM, signal_handler);
+    struct sigaction sa;
+    sa.sa_handler = signal_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
     printf("[INFO] Signal handlers installed\n");
     fflush(stdout);
     
@@ -33,6 +42,11 @@ int main(void)
     uv_loop_t loop;
     uv_loop_init(&loop);
     printf("[INFO] libuv loop initialized\n");
+    fflush(stdout);
+    
+    // Initialize async handle for signal notification
+    uv_async_init(&loop, &async_handle, async_callback);
+    printf("[INFO] Async handle initialized\n");
     fflush(stdout);
     
     // Create ZMQ context
@@ -112,9 +126,8 @@ int main(void)
     fflush(stdout);
     
     // Run event loop
-    while (keep_running) {
-        uv_run(&loop, UV_RUN_NOWAIT);
-        usleep(10000);  // 10ms sleep to prevent busy waiting
+    while (!stop_requested) {
+        uv_run(&loop, UV_RUN_ONCE);
     }
     
     printf("\n[INFO] Shutting down...\n");
@@ -132,10 +145,20 @@ int main(void)
     // 3. Terminate ZMQ context
     zmq_ctx_term(zmq_ctx);
     printf("[INFO] ZMQ context terminated\n");
+    fflush(stdout);
     
-    // 4. Close libuv loop
+    // 4. Close async handle
+    uv_close((uv_handle_t *)&async_handle, NULL);
+    printf("[INFO] Async handle closed\n");
+    fflush(stdout);
+    
+    // 5. Run loop once more to handle close callback
+    uv_run(&loop, UV_RUN_NOWAIT);
+    
+    // 6. Close libuv loop
     uv_loop_close(&loop);
     printf("[INFO] libuv loop closed\n");
+    fflush(stdout);
     
     printf("\n[INFO] Total messages received: %d\n", received_count);
     printf("[INFO] Shutdown complete\n");
