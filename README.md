@@ -6,7 +6,7 @@ UVZMQ provides **one thing only**: integrating ZMQ sockets with libuv event loop
 
 ## Features
 
-- ✅ **Minimal API** - Only 4 core functions needed
+- ✅ **Minimal API** - Only essential functions needed
 - ✅ **Event-driven** - Uses libuv's `uv_poll` for efficient I/O
 - ✅ **Batch processing** - Optimized for high-throughput scenarios
 - ✅ **Zero-copy support** - Compatible with ZMQ's zero-copy messaging
@@ -126,6 +126,16 @@ int uvzmq_socket_new(uv_loop_t *loop, void *zmq_sock,
 - `socket` - [out] pointer to receive the created uvzmq socket
 
 **Returns:** `UVZMQ_OK` on success, error code on failure
+
+#### `uvzmq_socket_close`
+
+Stop event handling for the socket without freeing resources.
+
+```c
+int uvzmq_socket_close(uvzmq_socket_t *socket);
+```
+
+**Note:** This stops libuv from polling the socket, but the socket remains valid. Useful when you want to temporarily stop event handling without destroying the socket. To permanently remove the socket, use `uvzmq_socket_free()`.
 
 #### `uvzmq_socket_free`
 
