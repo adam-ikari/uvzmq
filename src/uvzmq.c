@@ -20,7 +20,7 @@ struct uvzmq_socket_s {
     void *zmq_sock;
     int zmq_fd;
     uvzmq_recv_callback on_recv;
-    uvzmq_send_callback on_send;
+    uvzmq_send_callback on_send;  // Currently unused, reserved for future use
     void *user_data;
     int closed;
     uv_poll_t *poll_handle;
