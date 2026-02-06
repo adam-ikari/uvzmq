@@ -20,41 +20,43 @@ UVZMQ provides **one thing only**: integrating ZMQ sockets with libuv event loop
 #include <zmq.h>
 #include <uv.h>
 
-// Create ZMQ context and socket
-void *zmq_ctx = zmq_ctx_new();
-void *zmq_sock = zmq_socket(zmq_ctx, ZMQ_REP);
-zmq_bind(zmq_sock, "tcp://*:5555");
-
-// Create libuv loop
-uv_loop_t loop;
-uv_loop_init(&loop);
-
-// Integrate with libuv
-uvzmq_socket_t *uvzmq_sock = NULL;
+// Callback function
 void on_recv(uvzmq_socket_t *s, zmq_msg_t *msg, void *data) {
-    // Process message
-    const char *content = zmq_msg_data(msg);
-    size_t size = zmq_msg_size(msg);
-    
     // Echo back (zero-copy)
     zmq_msg_send(msg, uvzmq_get_zmq_socket(s), 0);
     
     // IMPORTANT: Close message to avoid memory leak
     zmq_msg_close(msg);
-};
-
-uvzmq_socket_new(&loop, zmq_sock, on_recv, NULL, NULL, &uvzmq_sock);
-
-// Run event loop
-while (keep_running) {
-    uv_run(&loop, UV_RUN_ONCE);
 }
 
-// Cleanup
-uvzmq_socket_free(uvzmq_sock);
-zmq_close(zmq_sock);
-zmq_ctx_term(zmq_ctx);
-uv_loop_close(&loop);
+int main(void) {
+    // Create ZMQ context and socket
+    void *zmq_ctx = zmq_ctx_new();
+    void *zmq_sock = zmq_socket(zmq_ctx, ZMQ_REP);
+    zmq_bind(zmq_sock, "tcp://*:5555");
+
+    // Create libuv loop
+    uv_loop_t loop;
+    uv_loop_init(&loop);
+
+    // Integrate with libuv
+    uvzmq_socket_t *uvzmq_sock = NULL;
+    uvzmq_socket_new(&loop, zmq_sock, on_recv, NULL, NULL, &uvzmq_sock);
+
+    // Run event loop
+    int keep_running = 1;
+    while (keep_running) {
+        uv_run(&loop, UV_RUN_ONCE);
+    }
+
+    // Cleanup
+    uvzmq_socket_free(uvzmq_sock);
+    zmq_close(zmq_sock);
+    zmq_ctx_term(zmq_ctx);
+    uv_loop_close(&loop);
+    
+    return 0;
+}
 ```
 
 ## Building
