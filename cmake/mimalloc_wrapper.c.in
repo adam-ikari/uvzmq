@@ -1,0 +1,30 @@
+/* Mimalloc symbol wrapper for ZMQ
+ * This file wraps standard memory allocation functions to use mimalloc
+ */
+
+#include <mimalloc.h>
+
+void *malloc(size_t size) {
+    return mi_malloc(size);
+}
+
+void free(void *ptr) {
+    mi_free(ptr);
+}
+
+void *realloc(void *ptr, size_t size) {
+    return mi_realloc(ptr, size);
+}
+
+void *calloc(size_t count, size_t size) {
+    return mi_calloc(count, size);
+}
+
+void *aligned_alloc(size_t alignment, size_t size) {
+    return mi_malloc_aligned(size, alignment);
+}
+
+int posix_memalign(void **memptr, size_t alignment, size_t size) {
+    *memptr = mi_malloc_aligned(size, alignment);
+    return (*memptr != NULL) ? 0 : ENOMEM;
+}
