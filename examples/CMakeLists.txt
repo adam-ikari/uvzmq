@@ -37,5 +37,29 @@ target_link_libraries(test_perf_analysis uvzmq pthread)
 add_executable(test_zmq_perf test_zmq_perf.c)
 target_link_libraries(test_zmq_perf ${CMAKE_BINARY_DIR}/third_party/zmq/lib/libzmq.a pthread stdc++)
 
+add_executable(best_practices best_practices.c)
+target_link_libraries(best_practices uvzmq pthread)
+
+add_executable(test_simple test_simple.c)
+target_link_libraries(test_simple uvzmq pthread)
+
+add_executable(test_uv_only test_uv_only.c)
+target_link_libraries(test_uv_only uvzmq pthread)
+
+add_executable(test_client test_client.c)
+target_link_libraries(test_client libzmq-static pthread)
+
+add_executable(test_poll test_poll.c)
+target_link_libraries(test_poll uvzmq pthread)
+
+add_executable(test_uvzmq test_uvzmq.c)
+target_link_libraries(test_uvzmq uvzmq pthread)
+
+add_executable(test_loop test_loop.c)
+target_link_libraries(test_loop uvzmq pthread)
+
+add_executable(test_zmq test_zmq.c)
+target_link_libraries(test_zmq libzmq-static pthread)
+
 add_executable(bench_test bench_test.c)
 target_link_libraries(bench_test uvzmq pthread)

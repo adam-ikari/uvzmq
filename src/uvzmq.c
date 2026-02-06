@@ -54,17 +54,21 @@ static void uvzmq_poll_callback(uv_poll_t *handle, int status, int events)
                 socket->total_messages++;
                 batch_count++;
                 
-                // For small messages, limit batch to prevent CPU starvation
-                if (batch_count >= 100) {
-                    // Check if there are more events
+                // Check if there are more events to prevent infinite loops
+                // Only check periodically to reduce overhead
+                if (batch_count % 50 == 0) {
                     int zmq_events;
                     size_t events_size = sizeof(zmq_events);
                     if (zmq_getsockopt(socket->zmq_sock, ZMQ_EVENTS, &zmq_events, &events_size) == 0) {
-                        if (zmq_events & ZMQ_POLLIN) {
-                            continue;  // More messages, continue processing
+                        if (!(zmq_events & ZMQ_POLLIN)) {
+                            break;  // No more messages
                         }
                     }
-                    break;  // No more messages
+                }
+                
+                // Safety limit to prevent CPU starvation in case of errors
+                if (batch_count >= 1000) {
+                    break;
                 }
             } else if (errno == EAGAIN) {
                 zmq_msg_close(&msg);
