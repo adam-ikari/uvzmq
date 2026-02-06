@@ -55,34 +55,6 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/third_party/zmq/include
 )
 
-set(UVZMQ_SOURCES
-    src/uvzmq.c
-)
-
-set(UVZMQ_HEADERS
-    include/uvzmq.h
-    include/uvzmq_types.h
-    include/uvzmq_features.h
-)
-
-add_library(uvzmq STATIC ${UVZMQ_SOURCES} ${UVZMQ_HEADERS})
-set_target_properties(uvzmq PROPERTIES LINKER_LANGUAGE C)
-
-if(UVZMQ_USE_MIMALLOC)
-    # Link mimalloc BEFORE ZMQ to override malloc/free symbols
-    target_link_libraries(uvzmq ${MIMALLOC_LIB} uv_a libzmq-static)
-    target_compile_definitions(uvzmq PRIVATE UVZMQ_USE_MIMALLOC=1)
-    
-    # Use whole archive for mimalloc to ensure symbols are included
-    set_target_properties(${MIMALLOC_LIB} PROPERTIES POSITION_INDEPENDENT_CODE ON)
-else()
-    target_link_libraries(uvzmq uv_a libzmq-static)
-endif()
-
-target_include_directories(uvzmq PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-)
-
 if(UVZMQ_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)

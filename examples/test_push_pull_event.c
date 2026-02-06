@@ -1,3 +1,4 @@
+#define UVZMQ_IMPLEMENTATION
 #include "../include/uvzmq.h"
 #include <zmq.h>
 #include <stdio.h>

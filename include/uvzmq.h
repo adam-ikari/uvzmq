@@ -142,4 +142,203 @@ const char *uvzmq_strerror(int err);
 }
 #endif
 
+/* ========== Implementation ========== */
+#ifdef UVZMQ_IMPLEMENTATION
+
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <errno.h>
+
+/* Internal structure */
+struct uvzmq_socket_s {
+    uv_loop_t *loop;
+    void *zmq_sock;
+    int zmq_fd;
+    uvzmq_recv_callback on_recv;
+    uvzmq_send_callback on_send;
+    void *user_data;
+    int closed;
+    uv_poll_t *poll_handle;
+    long long total_messages;
+};
+
+/* Internal callback */
+static void uvzmq_poll_callback(uv_poll_t *handle, int status, int events)
+{
+    (void)status;
+    uvzmq_socket_t *socket = (uvzmq_socket_t *)handle->data;
+
+    if (socket->closed) {
+        return;
+    }
+
+    if (events & UV_READABLE && socket->on_recv) {
+        int batch_count = 0;
+        
+        while (1) {
+            zmq_msg_t msg;
+            zmq_msg_init(&msg);
+
+            int recv_rc = zmq_msg_recv(&msg, socket->zmq_sock, ZMQ_DONTWAIT);
+            if (recv_rc >= 0) {
+                socket->on_recv(socket, &msg, socket->user_data);
+                socket->total_messages++;
+                batch_count++;
+                
+                if (batch_count % 50 == 0) {
+                    int zmq_events;
+                    size_t events_size = sizeof(zmq_events);
+                    if (zmq_getsockopt(socket->zmq_sock, ZMQ_EVENTS, &zmq_events, &events_size) == 0) {
+                        if (!(zmq_events & ZMQ_POLLIN)) {
+                            break;
+                        }
+                    }
+                }
+                
+                if (batch_count >= 1000) {
+                    break;
+                }
+            } else if (errno == EAGAIN) {
+                zmq_msg_close(&msg);
+                break;
+            } else {
+                fprintf(stderr, "[UVZMQ] zmq_msg_recv failed: %s (errno=%d)\n", 
+                        zmq_strerror(errno), errno);
+                zmq_msg_close(&msg);
+                break;
+            }
+        }
+    }
+}
+
+int uvzmq_socket_new(uv_loop_t *loop, void *zmq_sock,
+                     uvzmq_recv_callback on_recv,
+                     uvzmq_send_callback on_send,
+                     void *user_data,
+                     uvzmq_socket_t **socket)
+{
+    if (!loop || !zmq_sock || !socket) {
+        return UVZMQ_ERROR_INVALID_PARAM;
+    }
+
+    uvzmq_socket_t *sock = UVZMQ_MALLOC(sizeof(uvzmq_socket_t));
+    if (!sock) {
+        return UVZMQ_ERROR_NOMEM;
+    }
+
+    memset(sock, 0, sizeof(uvzmq_socket_t));
+
+    sock->loop = loop;
+    sock->zmq_sock = zmq_sock;
+    sock->on_recv = on_recv;
+    sock->on_send = on_send;
+    sock->user_data = user_data;
+    sock->closed = 0;
+
+    size_t fd_size = sizeof(sock->zmq_fd);
+    int rc = zmq_getsockopt(zmq_sock, ZMQ_FD, &sock->zmq_fd, &fd_size);
+    if (rc != 0) {
+        fprintf(stderr, "[UVZMQ] zmq_getsockopt ZMQ_FD failed: %d (errno=%d)\n", rc, errno);
+        UVZMQ_FREE(sock);
+        return UVZMQ_ERROR_GETSOCKOPT_FAILED;
+    }
+
+    uv_poll_t *poll_handle = UVZMQ_MALLOC(sizeof(uv_poll_t));
+    if (!poll_handle) {
+        UVZMQ_FREE(sock);
+        return UVZMQ_ERROR_NOMEM;
+    }
+
+    poll_handle->data = sock;
+    sock->poll_handle = poll_handle;
+
+    rc = uv_poll_init(loop, poll_handle, sock->zmq_fd);
+    if (rc != 0) {
+        fprintf(stderr, "[UVZMQ] uv_poll_init failed: %d\n", rc);
+        UVZMQ_FREE(poll_handle);
+        UVZMQ_FREE(sock);
+        return UVZMQ_ERROR_INIT_FAILED;
+    }
+
+    rc = uv_poll_start(poll_handle, UV_READABLE, uvzmq_poll_callback);
+    if (rc != 0) {
+        fprintf(stderr, "[UVZMQ] uv_poll_start failed: %d\n", rc);
+        uv_close((uv_handle_t *)poll_handle, NULL);
+        UVZMQ_FREE(poll_handle);
+        UVZMQ_FREE(sock);
+        return UVZMQ_ERROR_POLL_START_FAILED;
+    }
+
+    *socket = sock;
+    return UVZMQ_OK;
+}
+
+int uvzmq_socket_close(uvzmq_socket_t *socket)
+{
+    if (!socket || socket->closed) {
+        return UVZMQ_ERROR_INVALID_PARAM;
+    }
+
+    socket->closed = 1;
+    return UVZMQ_OK;
+}
+
+int uvzmq_socket_free(uvzmq_socket_t *socket)
+{
+    if (!socket) {
+        return UVZMQ_ERROR_INVALID_PARAM;
+    }
+
+    if (!socket->closed) {
+        uvzmq_socket_close(socket);
+    }
+
+    if (socket->poll_handle) {
+        uv_poll_stop(socket->poll_handle);
+        UVZMQ_FREE(socket->poll_handle);
+        socket->poll_handle = NULL;
+    }
+
+    UVZMQ_FREE(socket);
+    return UVZMQ_OK;
+}
+
+void *uvzmq_get_zmq_socket(uvzmq_socket_t *socket)
+{
+    return socket ? socket->zmq_sock : NULL;
+}
+
+uv_loop_t *uvzmq_get_loop(uvzmq_socket_t *socket)
+{
+    return socket ? socket->loop : NULL;
+}
+
+void *uvzmq_get_user_data(uvzmq_socket_t *socket)
+{
+    return socket ? socket->user_data : NULL;
+}
+
+int uvzmq_get_fd(uvzmq_socket_t *socket)
+{
+    return socket ? socket->zmq_fd : -1;
+}
+
+const char *uvzmq_strerror(int err)
+{
+    switch (err) {
+        case UVZMQ_OK: return "Success";
+        case UVZMQ_ERROR_INVALID_PARAM: return "Invalid parameter";
+        case UVZMQ_ERROR_NOMEM: return "Out of memory";
+        case UVZMQ_ERROR_INIT_FAILED: return "Poll initialization failed";
+        case UVZMQ_ERROR_POLL_START_FAILED: return "Poll start failed";
+        case UVZMQ_ERROR_GETSOCKOPT_FAILED: return "Get socket option failed";
+        case ENOMEM: return "Out of memory (errno)";
+        case EINVAL: return "Invalid argument (errno)";
+        default: return "Unknown error";
+    }
+}
+
+#endif /* UVZMQ_IMPLEMENTATION */
+
 #endif /* UVZMQ_H */
