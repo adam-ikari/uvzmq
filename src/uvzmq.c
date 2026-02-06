@@ -13,7 +13,16 @@
 #define UVZMQ_FREE free
 #endif
 
-static __thread int uvzmq_last_error = 0;
+/* Thread-local error storage */
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 201112L
+#define UVZMQ_THREAD_LOCAL _Thread_local
+#elif defined(__GNUC__)
+#define UVZMQ_THREAD_LOCAL __thread
+#else
+#error "Thread-local storage not supported"
+#endif
+
+static UVZMQ_THREAD_LOCAL int uvzmq_last_error = 0;
 
 struct uvzmq_socket_s {
     uv_loop_t *loop;
@@ -74,6 +83,8 @@ static void uvzmq_poll_callback(uv_poll_t *handle, int status, int events)
                 zmq_msg_close(&msg);
                 break; // No more messages
             } else {
+                fprintf(stderr, "[UVZMQ] zmq_msg_recv failed: %s (errno=%d)\n", 
+                        zmq_strerror(errno), errno);
                 zmq_msg_close(&msg);
                 break;
             }

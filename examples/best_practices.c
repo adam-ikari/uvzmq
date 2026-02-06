@@ -7,12 +7,19 @@
 #include <signal.h>
 
 static volatile sig_atomic_t stop_requested = 0;
+static volatile sig_atomic_t async_closed = 0;
 static uv_async_t async_handle;
 
 static void async_callback(uv_async_t *handle)
 {
     (void)handle;
     stop_requested = 1;
+}
+
+static void close_callback(uv_handle_t *handle)
+{
+    (void)handle;
+    async_closed = 1;
 }
 
 static void signal_handler(int sig)
@@ -61,18 +68,42 @@ int main(void)
     
     // Set socket options for better performance
     int timeout = 5000;  // 5 second timeout
-    zmq_setsockopt(zmq_sock, ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
+    int rc = zmq_setsockopt(zmq_sock, ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
+    if (rc != 0) {
+        fprintf(stderr, "[ERROR] Failed to set ZMQ_RCVTIMEO: %s\n", zmq_strerror(zmq_errno()));
+        fflush(stderr);
+        return 1;
+    }
     
     int rcvbuf = 1024 * 1024;  // 1MB receive buffer
+    rc = zmq_setsockopt(zmq_sock, ZMQ_RCVBUF, &rcvbuf, sizeof(rcvbuf));
+    if (rc != 0) {
+        fprintf(stderr, "[WARNING] Failed to set ZMQ_RCVBUF: %s\n", zmq_strerror(zmq_errno()));
+        fflush(stderr);
+        // Continue anyway, this is not critical
+    }
+    
     int sndbuf = 1024 * 1024;  // 1MB send buffer
-    zmq_setsockopt(zmq_sock, ZMQ_RCVBUF, &rcvbuf, sizeof(rcvbuf));
-    zmq_setsockopt(zmq_sock, ZMQ_SNDBUF, &sndbuf, sizeof(sndbuf));
+    rc = zmq_setsockopt(zmq_sock, ZMQ_SNDBUF, &sndbuf, sizeof(sndbuf));
+    if (rc != 0) {
+        fprintf(stderr, "[WARNING] Failed to set ZMQ_SNDBUF: %s\n", zmq_strerror(zmq_errno()));
+        fflush(stderr);
+        // Continue anyway, this is not critical
+    }
     printf("[INFO] Socket options configured\n");
     fflush(stdout);
     
     // Bind socket
     const char *endpoint = "tcp://*:5555";
-    zmq_bind(zmq_sock, endpoint);
+    rc = zmq_bind(zmq_sock, endpoint);
+    if (rc != 0) {
+        fprintf(stderr, "[ERROR] Failed to bind to %s: %s\n", endpoint, zmq_strerror(zmq_errno()));
+        fflush(stderr);
+        zmq_close(zmq_sock);
+        zmq_ctx_term(zmq_ctx);
+        uv_loop_close(&loop);
+        return 1;
+    }
     printf("[INFO] Socket bound to %s\n", endpoint);
     fflush(stdout);
     
@@ -105,9 +136,9 @@ int main(void)
     
     printf("[INFO] Creating UVZMQ socket...\n");
     fflush(stdout);
-    int rc = uvzmq_socket_new(&loop, zmq_sock, on_recv, NULL, 
+    int zrc = uvzmq_socket_new(&loop, zmq_sock, on_recv, NULL, 
                                  &received_count, &uvzmq_sock);
-    if (rc != UVZMQ_OK) {
+    if (zrc != UVZMQ_OK) {
         fprintf(stderr, "[ERROR] Failed to create uvzmq socket: %s\n", 
                 uvzmq_strerror_last());
         fflush(stderr);
@@ -134,26 +165,31 @@ int main(void)
     fflush(stdout);
     
     // Proper cleanup order (IMPORTANT!)
-    // 1. Free UVZMQ socket (stops libuv polling)
-    uvzmq_socket_free(uvzmq_sock);
-    printf("[INFO] UVZMQ socket freed\n");
-    
-    // 2. Close ZMQ socket
-    zmq_close(zmq_sock);
-    printf("[INFO] ZMQ socket closed\n");
-    
-    // 3. Terminate ZMQ context
-    zmq_ctx_term(zmq_ctx);
-    printf("[INFO] ZMQ context terminated\n");
+    // 1. Close async handle first (stops signal notifications)
+    uv_close((uv_handle_t *)&async_handle, close_callback);
+    printf("[INFO] Async handle closing...\n");
     fflush(stdout);
     
-    // 4. Close async handle
-    uv_close((uv_handle_t *)&async_handle, NULL);
+    // 2. Wait for async handle to close
+    while (!async_closed) {
+        uv_run(&loop, UV_RUN_NOWAIT);
+        usleep(1000);  // 1ms sleep
+    }
     printf("[INFO] Async handle closed\n");
     fflush(stdout);
     
-    // 5. Run loop once more to handle close callback
-    uv_run(&loop, UV_RUN_NOWAIT);
+    // 3. Free UVZMQ socket (stops libuv polling)
+    uvzmq_socket_free(uvzmq_sock);
+    printf("[INFO] UVZMQ socket freed\n");
+    
+    // 4. Close ZMQ socket
+    zmq_close(zmq_sock);
+    printf("[INFO] ZMQ socket closed\n");
+    
+    // 5. Terminate ZMQ context
+    zmq_ctx_term(zmq_ctx);
+    printf("[INFO] ZMQ context terminated\n");
+    fflush(stdout);
     
     // 6. Close libuv loop
     uv_loop_close(&loop);
