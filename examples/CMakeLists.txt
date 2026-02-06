@@ -2,11 +2,6 @@ if(UVZMQ_BUILD_EXAMPLES)
     # Include directory for header-only library
     include_directories(${CMAKE_SOURCE_DIR}/include)
     
-    # Link mimalloc if enabled
-    if(UVZMQ_USE_MIMALLOC)
-        link_libraries(${MIMALLOC_LIB})
-    endif()
-    
     add_executable(simple simple.c)
     target_link_libraries(simple uv_a libzmq-static)
 

@@ -11,16 +11,9 @@ else()
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2")
 endif()
 
-option(UVZMQ_USE_MIMALLOC "Use mimalloc allocator" ON)
 option(UVZMQ_BUILD_TESTS "Build tests" ON)
 option(UVZMQ_BUILD_BENCHMARKS "Build benchmarks" ON)
 option(UVZMQ_BUILD_EXAMPLES "Build examples" ON)
-
-if(UVZMQ_USE_MIMALLOC)
-    add_subdirectory(third_party/mimalloc EXCLUDE_FROM_ALL)
-    set(MIMALLOC_LIB mimalloc-static)
-    include_directories(${CMAKE_SOURCE_DIR}/third_party/mimalloc/include)
-endif()
 
 # gtest
 if(UVZMQ_BUILD_TESTS)
@@ -40,12 +33,6 @@ set(ENABLE_DRAFTS OFF CACHE BOOL "" FORCE)
 set(WITH_PERF_TOOL OFF CACHE BOOL "" FORCE)
 set(ZMQ_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
-
-# Use mimalloc for ZMQ via linking order
-if(UVZMQ_USE_MIMALLOC)
-    # Link mimalloc first so its symbols override standard malloc/free
-    set(ZMQ_MIMALLOC_LINK ${MIMALLOC_LIB})
-endif()
 
 add_subdirectory(third_party/zmq EXCLUDE_FROM_ALL)
 

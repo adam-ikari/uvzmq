@@ -11,9 +11,21 @@ UVZMQ provides **one thing only**: integrating ZMQ sockets with libuv event loop
 - ✅ **Batch processing** - Optimized for high-throughput scenarios
 - ✅ **Zero-copy support** - Compatible with ZMQ's zero-copy messaging
 - ✅ **C99 standard** - Works with GCC and Clang compilers
-- ✅ **mimalloc support** - Optional high-performance memory allocator
 
 ## Quick Start
+
+UVZMQ is a **header-only library**. Include the header file in one of your source files with the implementation macro:
+
+```c
+// In ONE of your source files
+#define UVZMQ_IMPLEMENTATION
+#include "uvzmq.h"
+
+// In other source files
+#include "uvzmq.h"
+```
+
+Then use it in your code:
 
 ```c
 #include "uvzmq.h"
@@ -59,6 +71,8 @@ int main(void) {
 }
 ```
 
+**Important:** Only define `UVZMQ_IMPLEMENTATION` in **ONE** source file. All other files should just include `"uvzmq.h"`.
+
 ## Building
 
 ### Prerequisites
@@ -67,7 +81,6 @@ int main(void) {
 - CMake 3.10 or higher
 - libuv (included as submodule)
 - ZeroMQ 4.x (included as submodule)
-- mimalloc (included as submodule, optional)
 
 ### Build Steps
 
@@ -81,9 +94,6 @@ make
 ### Build Options
 
 ```bash
-# Disable mimalloc
-cmake -DUVZMQ_USE_MIMALLOC=OFF ..
-
 # Disable examples
 cmake -DUVZMQ_BUILD_EXAMPLES=OFF ..
 

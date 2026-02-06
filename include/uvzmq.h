@@ -5,16 +5,11 @@
 #include "uvzmq_features.h"
 #include <uv.h>
 #include <zmq.h>
+#include <stdlib.h>
 
 /* Memory allocation macros */
-#if UVZMQ_USE_MIMALLOC
-#include <mimalloc.h>
-#define UVZMQ_MALLOC mi_malloc
-#define UVZMQ_FREE mi_free
-#else
 #define UVZMQ_MALLOC malloc
 #define UVZMQ_FREE free
-#endif
 
 #ifdef __cplusplus
 extern "C" {
