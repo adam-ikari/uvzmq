@@ -38,12 +38,6 @@ extern "C" {
  * by a single thread only. The underlying ZMQ socket must not be accessed
  * from other threads while uvzmq_socket_new is active.
  *
- * For multi-threaded applications:
- * - Create separate uvzmq_socket_t instances for each thread
- * - Use separate ZMQ contexts (zmq_ctx_t) for each thread, or use
- *   zmq_ctx_set() with ZMQ_IO_THREADS appropriately
- * - Do NOT share uvzmq_socket_t or zmq_sock across threads
- *
  * ========== Core Integration Functions ========== */
 
 /* Initialize UVZMQ socket and integrate with libuv event loop
@@ -78,6 +72,11 @@ extern "C" {
  *   // Close ZMQ socket
  *   zmq_close(zmq_sock);
  *   zmq_ctx_term(zmq_ctx);
+ *
+ * NOTE:
+ *   - UVZMQ provides ONLY libuv event loop integration via uv_poll
+ *   - For other operations (send, recv, poll), use standard ZMQ APIs directly
+ *   - Use uvzmq_get_zmq_socket() to access the underlying ZMQ socket
  *
  * Thread Safety:
  *   Each uvzmq_socket_t must be used by a single thread only.
@@ -126,19 +125,13 @@ uv_loop_t *uvzmq_get_loop(uvzmq_socket_t *socket);
  */
 void *uvzmq_get_user_data(uvzmq_socket_t *socket);
 
-/* Poll socket for events (non-blocking)
- * events: UVZMQ_POLLIN, UVZMQ_POLLOUT, or UVZMQ_POLLIN | UVZMQ_POLLOUT
- * timeout_ms: timeout in milliseconds
- * Returns: events that occurred, or -1 on error
+/* Get the ZMQ file descriptor
+ * Use this to integrate with other libuv handle types
+ * Returns: file descriptor, or -1 on error
  */
-int uvzmq_poll(uvzmq_socket_t *socket, int events, int timeout_ms);
+int uvzmq_get_fd(uvzmq_socket_t *socket);
 
 /* ========== Error Handling ========== */
-
-/* Get last error code
- * Returns: error code (UVZMQ_OK or error constant)
- */
-int uvzmq_errno(void);
 
 /* Get error message string
  * Returns: static string describing the error

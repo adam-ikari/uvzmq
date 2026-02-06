@@ -192,42 +192,9 @@ void *uvzmq_get_user_data(uvzmq_socket_t *socket)
     return socket ? socket->user_data : NULL;
 }
 
-int uvzmq_poll(uvzmq_socket_t *socket, int events, int timeout_ms)
+int uvzmq_get_fd(uvzmq_socket_t *socket)
 {
-    if (!socket) {
-        return UVZMQ_ERROR_INVALID_PARAM;
-    }
-
-    zmq_pollitem_t item;
-    item.socket = socket->zmq_sock;
-    item.fd = 0;
-    item.events = 0;
-    item.revents = 0;
-
-    if (events & UVZMQ_POLLIN) {
-        item.events |= ZMQ_POLLIN;
-    }
-    if (events & UVZMQ_POLLOUT) {
-        item.events |= ZMQ_POLLOUT;
-    }
-
-    int rc = zmq_poll(&item, 1, timeout_ms);
-    if (rc < 0) {
-        return -1;
-    }
-
-    int result = 0;
-    if (item.revents & ZMQ_POLLIN) {
-        result |= UVZMQ_POLLIN;
-    }
-    if (item.revents & ZMQ_POLLOUT) {
-        result |= UVZMQ_POLLOUT;
-    }
-    if (item.revents & ZMQ_POLLERR) {
-        result |= UVZMQ_POLLERR;
-    }
-
-    return result;
+    return socket ? socket->zmq_fd : -1;
 }
 
 const char *uvzmq_strerror(int err)

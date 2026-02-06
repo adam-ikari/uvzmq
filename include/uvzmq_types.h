@@ -35,13 +35,6 @@ typedef struct uvzmq_socket_s uvzmq_socket_t;
 typedef void (*uvzmq_recv_callback)(uvzmq_socket_t *socket, zmq_msg_t *msg, void *user_data);
 typedef void (*uvzmq_send_callback)(uvzmq_socket_t *socket, void *user_data);
 
-/* Socket events */
-typedef enum {
-    UVZMQ_POLLIN = 1,
-    UVZMQ_POLLOUT = 2,
-    UVZMQ_POLLERR = 4
-} uvzmq_event_t;
-
 #ifdef __cplusplus
 }
 #endif
