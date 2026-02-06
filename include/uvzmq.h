@@ -145,11 +145,6 @@ int uvzmq_errno(void);
  */
 const char *uvzmq_strerror(int err);
 
-/* Get last error message
- * Returns: static string describing the last error
- */
-const char *uvzmq_strerror_last(void);
-
 #ifdef __cplusplus
 }
 #endif

@@ -99,7 +99,7 @@ int main(void)
     fflush(stdout);
     rc = uvzmq_socket_new(&loop, zmq_sock, on_recv, NULL, &received, &uvzmq_sock);
     if (rc != UVZMQ_OK) {
-        fprintf(stderr, "[ERROR] uvzmq_socket_new failed: %s\n", uvzmq_strerror_last());
+        fprintf(stderr, "[ERROR] uvzmq_socket_new failed: %s\n", uvzmq_strerror(rc));
         zmq_close(zmq_sock);
         zmq_ctx_term(zmq_ctx);
         uv_loop_close(&loop);

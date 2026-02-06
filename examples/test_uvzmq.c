@@ -34,7 +34,7 @@ int main(void)
     int rc = uvzmq_socket_new(&loop, zmq_sock, on_recv, NULL, NULL, &uvzmq_sock);
     printf("uvzmq_socket_new returned: %d\n", rc);
     if (rc != UVZMQ_OK) {
-        printf("Error: %s\n", uvzmq_strerror_last());
+        printf("Error: %s\n", uvzmq_strerror(rc));
     }
     fflush(stdout);
     

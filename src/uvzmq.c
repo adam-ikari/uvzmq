@@ -13,15 +13,6 @@
 #define UVZMQ_FREE free
 #endif
 
-/* Thread-local error storage */
-#if defined(__GNUC__) || defined(__clang__)
-#define UVZMQ_THREAD_LOCAL __thread
-#else
-#error "Thread-local storage not supported on this compiler"
-#endif
-
-static UVZMQ_THREAD_LOCAL int uvzmq_last_error = 0;
-
 struct uvzmq_socket_s {
     uv_loop_t *loop;
     void *zmq_sock;
@@ -97,13 +88,11 @@ int uvzmq_socket_new(uv_loop_t *loop, void *zmq_sock,
                      uvzmq_socket_t **socket)
 {
     if (!loop || !zmq_sock || !socket) {
-        uvzmq_last_error = UVZMQ_ERROR_INVALID_PARAM;
         return UVZMQ_ERROR_INVALID_PARAM;
     }
 
     uvzmq_socket_t *sock = UVZMQ_MALLOC(sizeof(uvzmq_socket_t));
     if (!sock) {
-        uvzmq_last_error = UVZMQ_ERROR_NOMEM;
         return UVZMQ_ERROR_NOMEM;
     }
 
@@ -122,7 +111,6 @@ int uvzmq_socket_new(uv_loop_t *loop, void *zmq_sock,
     if (rc != 0) {
         fprintf(stderr, "[UVZMQ] zmq_getsockopt ZMQ_FD failed: %d (errno=%d)\n", rc, errno);
         UVZMQ_FREE(sock);
-        uvzmq_last_error = UVZMQ_ERROR_GETSOCKOPT_FAILED;
         return UVZMQ_ERROR_GETSOCKOPT_FAILED;
     }
 
@@ -130,7 +118,6 @@ int uvzmq_socket_new(uv_loop_t *loop, void *zmq_sock,
     uv_poll_t *poll_handle = UVZMQ_MALLOC(sizeof(uv_poll_t));
     if (!poll_handle) {
         UVZMQ_FREE(sock);
-        uvzmq_last_error = UVZMQ_ERROR_NOMEM;
         return UVZMQ_ERROR_NOMEM;
     }
 
@@ -142,7 +129,6 @@ int uvzmq_socket_new(uv_loop_t *loop, void *zmq_sock,
         fprintf(stderr, "[UVZMQ] uv_poll_init failed: %d\n", rc);
         UVZMQ_FREE(poll_handle);
         UVZMQ_FREE(sock);
-        uvzmq_last_error = UVZMQ_ERROR_INIT_FAILED;
         return UVZMQ_ERROR_INIT_FAILED;
     }
 
@@ -152,7 +138,6 @@ int uvzmq_socket_new(uv_loop_t *loop, void *zmq_sock,
         uv_close((uv_handle_t *)poll_handle, NULL);
         UVZMQ_FREE(poll_handle);
         UVZMQ_FREE(sock);
-        uvzmq_last_error = UVZMQ_ERROR_POLL_START_FAILED;
         return UVZMQ_ERROR_POLL_START_FAILED;
     }
 
@@ -228,7 +213,6 @@ int uvzmq_poll(uvzmq_socket_t *socket, int events, int timeout_ms)
 
     int rc = zmq_poll(&item, 1, timeout_ms);
     if (rc < 0) {
-        uvzmq_last_error = errno;
         return -1;
     }
 
@@ -246,11 +230,6 @@ int uvzmq_poll(uvzmq_socket_t *socket, int events, int timeout_ms)
     return result;
 }
 
-int uvzmq_errno(void)
-{
-    return uvzmq_last_error;
-}
-
 const char *uvzmq_strerror(int err)
 {
     switch (err) {
@@ -264,9 +243,4 @@ const char *uvzmq_strerror(int err)
         case EINVAL: return "Invalid argument (errno)";
         default: return "Unknown error";
     }
-}
-
-const char *uvzmq_strerror_last(void)
-{
-    return uvzmq_strerror(uvzmq_last_error);
 }

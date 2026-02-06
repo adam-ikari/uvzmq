@@ -140,7 +140,7 @@ int main(void)
                                  &received_count, &uvzmq_sock);
     if (zrc != UVZMQ_OK) {
         fprintf(stderr, "[ERROR] Failed to create uvzmq socket: %s\n", 
-                uvzmq_strerror_last());
+                uvzmq_strerror(zrc));
         fflush(stderr);
         
         // Clean up resources on error
