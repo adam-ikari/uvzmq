@@ -8,7 +8,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror -march=native -mtune=n
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0")
 else()
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3 -flto -ffast-math")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2")
 endif()
 
 option(UVZMQ_USE_MIMALLOC "Use mimalloc allocator" ON)

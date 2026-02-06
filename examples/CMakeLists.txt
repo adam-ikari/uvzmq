@@ -61,5 +61,8 @@ target_link_libraries(test_loop uvzmq pthread)
 add_executable(test_zmq test_zmq.c)
 target_link_libraries(test_zmq libzmq-static pthread)
 
+add_executable(test_simple2 test_simple2.c)
+target_link_libraries(test_simple2 uvzmq pthread)
+
 add_executable(bench_test bench_test.c)
 target_link_libraries(bench_test uvzmq pthread)

@@ -26,6 +26,8 @@ int main(void)
     // Setup signal handler for graceful shutdown
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
+    printf("[INFO] Signal handlers installed\n");
+    fflush(stdout);
     
     // Create libuv loop
     uv_loop_t loop;

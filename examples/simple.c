@@ -20,6 +20,7 @@ int main(void)
 {
     printf("UVZMQ Simplified API Example\n");
     printf("==============================\n\n");
+    fflush(stdout);
 
     uv_loop_t loop;
     uv_loop_init(&loop);
@@ -43,12 +44,14 @@ int main(void)
 
     printf("Connected to tcp://127.0.0.1:5555\n");
     printf("Sending message...\n");
+    fflush(stdout);
 
     // Send message using standard ZMQ API
     const char *msg = "Hello from UVZMQ!";
     zmq_send(zmq_sock, msg, strlen(msg), 0);
 
     printf("Waiting for reply...\n\n");
+    fflush(stdout);
 
     // Run libuv event loop
     uv_run(&loop, UV_RUN_DEFAULT);
