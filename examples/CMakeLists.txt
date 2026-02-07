@@ -5,6 +5,12 @@ if(UVZMQ_BUILD_EXAMPLES)
     add_executable(simple simple.c)
     target_link_libraries(simple libzmq-static uv_a)
 
+    add_executable(req_rep req_rep.c)
+    target_link_libraries(req_rep libzmq-static uv_a)
+
+    add_executable(direct_zmq_api direct_zmq_api.c)
+    target_link_libraries(direct_zmq_api libzmq-static uv_a)
+
     # add_executable(test_allocator test_allocator.c)
     # target_link_libraries(test_allocator libzmq-static)
 

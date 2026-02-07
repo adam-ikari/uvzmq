@@ -1,4 +1,4 @@
-.PHONY: all clean format format-code format-docs check-format build test help
+.PHONY: all clean format format-code format-docs check-format build test e2e-test help
 
 # Default target
 all: build
@@ -75,6 +75,25 @@ check-docs-format:
 	fi
 
 # Run tests
+test:
+	@echo "Running tests..."
+	@if [ -d "build" ]; then \
+		cd build && ctest --output-on-failure; \
+	else \
+		echo "Build directory not found. Run 'make build' first."; \
+		exit 1; \
+	fi
+
+# Run end-to-end tests
+e2e-test:
+	@echo "Running end-to-end tests..."
+	@if [ -f "tests/e2e_test.sh" ]; then \
+		chmod +x tests/e2e_test.sh; \
+		./tests/e2e_test.sh; \
+	else \
+		echo "E2E test script not found."; \
+		exit 1; \
+	fi
 
 # Generate documentation with doxygen
 docs:
@@ -92,15 +111,6 @@ clean-docs:
 	@echo "Cleaning documentation..."
 	@rm -rf docs html
 	@echo "Documentation cleaned!"
-test:
-	@echo "Running tests..."
-	@if [ -d "build" ]; then \
-		cd build && ctest --output-on-failure; \
-	else \
-		echo "Build directory not found. Run 'make build' first."; \
-		exit 1; \
-	fi
-
 
 # Show help
 help:
@@ -116,6 +126,7 @@ help:
 	@echo "  check-format     - Check code formatting"
 	@echo "  check-docs-format- Check markdown formatting"
 	@echo "  test             - Run tests"
+	@echo "  e2e-test         - Run end-to-end tests"
 	@echo "  docs             - Generate documentation with doxygen"
 	@echo "  clean-docs       - Remove documentation"
 	@echo "  help             - Show this help message"
@@ -127,6 +138,7 @@ help:
 	@echo "  make format-docs    # Format markdown docs only"
 	@echo "  make check-format   # Check code formatting"
 	@echo "  make test           # Run tests"
+	@echo "  make e2e-test       # Run end-to-end tests"
 	@echo "  make docs           # Generate documentation"
 	@echo "  make clean-docs     # Clean documentation"
 	@echo "  make clean build    # Clean and rebuild"
