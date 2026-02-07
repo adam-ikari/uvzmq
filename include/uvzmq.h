@@ -1,4 +1,153 @@
 /**
+ * @mainpage UVZMQ Documentation
+ *
+ * @section intro Introduction
+ * UVZMQ is a minimal integration layer between ZeroMQ and libuv event loop,
+ * allowing you to use ZMQ sockets with libuv's event-driven model.
+ *
+ * UVZMQ provides **one thing only**: integrating ZMQ sockets with libuv
+ * event loop using `uv_poll`. All other ZMQ operations (send, recv, poll,
+ * setsockopt, etc.) should be used directly from the ZMQ API.
+ *
+ * @section features Features
+ * - ✅ **Minimal API** - Only essential functions needed
+ * - ✅ **Event-driven** - Uses libuv's `uv_poll` for efficient I/O
+ * - ✅ **Batch processing** - Optimized for high-throughput scenarios
+ * - ✅ **Zero-copy support** - Compatible with ZMQ's zero-copy messaging
+ * - ✅ **C99 standard** - Works with GCC and Clang compilers
+ *
+ * @section design Design Principles
+ * - **Minimal**: Only 3 core functions + 4 getter functions
+ * - **Transparent**: Structure is public, no hidden magic
+ * - **Zero-abstraction**: Direct ZMQ API access
+ * - **Header-only**: Single file integration
+ *
+ * @section performance Performance
+ * UVZMQ provides significant performance improvements over timer-based polling:
+ * - **Timer-based**: ~11.2ms per message
+ * - **Event-driven (UVZMQ)**: ~0.056ms per message
+ * - **Improvement**: ~200x faster
+ *
+ * For large messages (>1KB), UVZMQ achieves performance comparable to
+ * native ZMQ with only 5-8% overhead due to libuv callback infrastructure.
+ *
+ * @section quickstart Quick Start
+ * UVZMQ is a **header-only library**. Include the header file in one of
+ * your source files with the implementation macro:
+ *
+ * @code
+ * // In ONE of your source files
+ * #define UVZMQ_IMPLEMENTATION
+ * #include "uvzmq.h"
+ *
+ * // In other source files
+ * #include "uvzmq.h"
+ * @endcode
+ *
+ * Then use it in your code:
+ *
+ * @code
+ * #include "uvzmq.h"
+ * #include <zmq.h>
+ * #include <uv.h>
+ *
+ * void on_recv(uvzmq_socket_t* s, zmq_msg_t* msg, void* data) {
+ *     // Echo back (zero-copy)
+ *     zmq_msg_send(msg, uvzmq_get_zmq_socket(s), 0);
+ *
+ *     // IMPORTANT: Close message to avoid memory leak
+ *     zmq_msg_close(msg);
+ * }
+ *
+ * int main(void) {
+ *     // Create ZMQ context and socket
+ *     void* zmq_ctx = zmq_ctx_new();
+ *     void* zmq_sock = zmq_socket(zmq_ctx, ZMQ_REP);
+ *     zmq_bind(zmq_sock, "tcp://*:5555");
+ *
+ *     // Create libuv loop
+ *     uv_loop_t loop;
+ *     uv_loop_init(&loop);
+ *
+ *     // Integrate with libuv
+ *     uvzmq_socket_t* uvzmq_sock = NULL;
+ *     uvzmq_socket_new(&loop, zmq_sock, on_recv, NULL, &uvzmq_sock);
+ *
+ *     // Run event loop
+ *     uv_run(&loop, UV_RUN_DEFAULT);
+ *
+ *     // Cleanup
+ *     uvzmq_socket_free(uvzmq_sock);
+ *     zmq_close(zmq_sock);
+ *     zmq_ctx_term(zmq_ctx);
+ *     uv_loop_close(&loop);
+ *
+ *     return 0;
+ * }
+ * @endcode
+ *
+ * @section api API Reference
+ * See the following sections for detailed API documentation:
+ * - @ref uvzmq_socket_s - Socket structure
+ * - @ref uvzmq_socket_new - Create a new socket
+ * - @ref uvzmq_socket_close - Close the socket
+ * - @ref uvzmq_socket_free - Free the socket
+ * - @ref uvzmq_get_zmq_socket - Get ZMQ socket
+ * - @ref uvzmq_get_loop - Get libuv loop
+ * - @ref uvzmq_get_user_data - Get user data
+ * - @ref uvzmq_get_fd - Get file descriptor
+ *
+ * @section examples Examples
+ * See the `examples/` directory for complete examples:
+ * - `simple.c` - Basic REQ/REP pattern
+ * - `best_practices.c` - Complete example with signal handling
+ * - `test_*.c` - Various test cases
+ *
+ * @section building Building
+ * @code
+ * git submodule update --init --recursive
+ * mkdir build && cd build
+ * cmake ..
+ * make
+ * @endcode
+ *
+ * @section batch Batch Processing Configuration
+ * UVZMQ uses batch processing for performance:
+ * - @ref UVZMQ_MAX_BATCH_SIZE - Maximum messages per batch (default: 1000)
+ * - @ref UVZMQ_BATCH_CHECK_INTERVAL - Check interval (default: 50)
+ *
+ * @section threads Thread Safety
+ * UVZMQ is **NOT thread-safe**. Each `uvzmq_socket_t` must be used by a
+ * single thread only.
+ *
+ * For multi-threaded applications:
+ * - Create separate `uvzmq_socket_t` instances for each thread
+ * - Use separate ZMQ contexts or configure `ZMQ_IO_THREADS` appropriately
+ * - Do NOT share `uvzmq_socket_t` or `zmq_sock` across threads
+ *
+ * @section error Error Handling
+ * All functions return `0` on success and `-1` on failure. To diagnose
+ * errors:
+ * @code
+ * if (uvzmq_socket_new(loop, zmq_sock, on_recv, NULL, &sock) != 0) {
+ *     // Check system errno
+ *     perror("uvzmq_socket_new");
+ *
+ *     // Or check ZMQ errors
+ *     int zmq_err = zmq_errno();
+ *     fprintf(stderr, "ZMQ error: %s\n", zmq_strerror(zmq_err));
+ * }
+ * @endcode
+ *
+ * @section cleanup Cleanup Order
+ * Important: Follow the correct cleanup order:
+ * @code
+ * uvzmq_socket_free(uvzmq_sock);  // First
+ * zmq_close(zmq_sock);              // Second
+ * zmq_ctx_term(zmq_ctx);            // Third
+ * uv_loop_close(&loop);             // Last
+ * @endcode
+ *
  * @file uvzmq.h
  * @brief Header-only library for integrating ZeroMQ with libuv
  *
