@@ -1,5 +1,7 @@
 # UVZMQ
 
+[中文文档](README_CN.md)
+
 Minimal libuv integration for ZeroMQ.
 
 UVZMQ provides **one thing only**: integrating ZMQ sockets with libuv event loop using `uv_poll`. All other ZMQ operations (send, recv, poll, setsockopt, etc.) should be used directly from the ZMQ API.

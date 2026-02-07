@@ -1,5 +1,7 @@
 # UVZMQ
 
+[English](README.md)
+
 ZeroMQ的极简libuv集成库。
 
 UVZMQ**只做一件事**：使用`uv_poll`将ZMQ套接字集成到libuv事件循环中。所有其他ZMQ操作（send、recv、poll、setsockopt等）都应该直接使用ZMQ API。
