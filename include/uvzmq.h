@@ -23,8 +23,36 @@
 #define UVZMQ_H
 
 /* Batch processing configuration */
-#define UVZMQ_MAX_BATCH_SIZE 1000  /**< Maximum messages to process in one batch */
-#define UVZMQ_BATCH_CHECK_INTERVAL 50  /**< Check ZMQ events every N messages */
+/**
+ * @def UVZMQ_MAX_BATCH_SIZE
+ * @brief Maximum number of messages to process in a single batch
+ *
+ * When the socket becomes readable, uvzmq processes messages in batches
+ * to improve performance. This constant limits the maximum number of
+ * messages processed before yielding control back to the event loop.
+ *
+ * @note A higher value improves throughput but may increase latency for
+ *       other operations. The default value of 1000 has been tested to
+ *       provide good performance for most use cases.
+ */
+#define UVZMQ_MAX_BATCH_SIZE 1000
+
+/**
+ * @def UVZMQ_BATCH_CHECK_INTERVAL
+ * @brief Interval for checking ZMQ socket events during batch processing
+ *
+ * During batch processing, uvzmq checks whether the ZMQ socket still has
+ * data available every N messages (defined by this constant). This balances
+ * performance (reducing system calls) with responsiveness (avoiding unnecessary
+ * iterations when no data is available).
+ *
+ * @note The default value of 50 provides a good balance:
+ *       - Smaller values: More responsive but higher system call overhead
+ *       - Larger values: Better throughput but may process empty iterations
+ *
+ * @see UVZMQ_MAX_BATCH_SIZE
+ */
+#define UVZMQ_BATCH_CHECK_INTERVAL 50
 
 #include <stddef.h>
 #include <stdint.h>
