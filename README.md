@@ -36,7 +36,7 @@ Then use it in your code:
 void on_recv(uvzmq_socket_t *s, zmq_msg_t *msg, void *data) {
     // Echo back (zero-copy)
     zmq_msg_send(msg, uvzmq_get_zmq_socket(s), 0);
-    
+
     // IMPORTANT: Close message to avoid memory leak
     zmq_msg_close(msg);
 }
@@ -66,7 +66,7 @@ int main(void) {
     zmq_close(zmq_sock);
     zmq_ctx_term(zmq_ctx);
     uv_loop_close(&loop);
-    
+
     return 0;
 }
 ```
@@ -118,6 +118,7 @@ int uvzmq_socket_new(uv_loop_t *loop,
 ```
 
 **Parameters:**
+
 - `loop` - libuv event loop
 - `zmq_sock` - existing ZMQ socket
 - `on_recv` - callback for when socket is readable
@@ -127,6 +128,7 @@ int uvzmq_socket_new(uv_loop_t *loop,
 **Returns:** `0` on success, `-1` on failure
 
 **Error Diagnosis:** On failure, you can diagnose errors by:
+
 - Check `errno` for system-level errors
 - Call `zmq_errno()` to get ZMQ error code
 - Call `zmq_strerror(zmq_errno())` for error message
@@ -193,7 +195,7 @@ All functions return `0` on success and `-1` on failure. To diagnose errors:
 if (uvzmq_socket_new(loop, zmq_sock, on_recv, NULL, &sock) != 0) {
     // Check system errno
     perror("uvzmq_socket_new");
-    
+
     // Or check ZMQ errors
     int zmq_err = zmq_errno();
     fprintf(stderr, "ZMQ error: %s\n", zmq_strerror(zmq_err));
@@ -201,6 +203,7 @@ if (uvzmq_socket_new(loop, zmq_sock, on_recv, NULL, &sock) != 0) {
 ```
 
 Common error sources:
+
 - Invalid parameters (NULL pointers)
 - ZMQ socket not properly initialized
 - ZMQ socket not bound/connected
@@ -211,6 +214,7 @@ Common error sources:
 UVZMQ is **NOT thread-safe**. Each `uvzmq_socket_t` must be used by a single thread only.
 
 For multi-threaded applications:
+
 - Create separate `uvzmq_socket_t` instances for each thread
 - Use separate ZMQ contexts or configure `ZMQ_IO_THREADS` appropriately
 - Do NOT share `uvzmq_socket_t` or `zmq_sock` across threads
@@ -223,7 +227,7 @@ The `on_recv` callback **MUST** close the `zmq_msg_t` after processing:
 void on_recv(uvzmq_socket_t *socket, zmq_msg_t *msg, void *user_data) {
     // Process message
     zmq_msg_send(msg, uvzmq_get_zmq_socket(socket), 0);
-    
+
     // REQUIRED: Close message to avoid memory leak
     zmq_msg_close(msg);
 }

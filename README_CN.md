@@ -36,7 +36,7 @@ UVZMQ是一个**仅头文件库**。在其中一个源文件中包含实现宏�
 void on_recv(uvzmq_socket_t *s, zmq_msg_t *msg, void *data) {
     // 回显（零拷贝）
     zmq_msg_send(msg, uvzmq_get_zmq_socket(s), 0);
-    
+
     // 重要：关闭消息以避免内存泄漏
     zmq_msg_close(msg);
 }
@@ -66,7 +66,7 @@ int main(void) {
     zmq_close(zmq_sock);
     zmq_ctx_term(zmq_ctx);
     uv_loop_close(&loop);
-    
+
     return 0;
 }
 ```
@@ -118,6 +118,7 @@ int uvzmq_socket_new(uv_loop_t *loop,
 ```
 
 **参数：**
+
 - `loop` - libuv事件循环
 - `zmq_sock` - 现有的ZMQ套接字
 - `on_recv` - 套接字可读时的回调
@@ -127,6 +128,7 @@ int uvzmq_socket_new(uv_loop_t *loop,
 **返回值：** 成功返回`0`，失败返回`-1`
 
 **错误诊断：** 失败时，你可以通过以下方式诊断错误：
+
 - 检查`errno`获取系统级错误
 - 调用`zmq_errno()`获取ZMQ错误代码
 - 调用`zmq_strerror(zmq_errno())`获取错误消息
@@ -193,7 +195,7 @@ int uvzmq_get_fd(uvzmq_socket_t *socket);
 if (uvzmq_socket_new(loop, zmq_sock, on_recv, NULL, &sock) != 0) {
     // 检查系统errno
     perror("uvzmq_socket_new");
-    
+
     // 或检查ZMQ错误
     int zmq_err = zmq_errno();
     fprintf(stderr, "ZMQ error: %s\n", zmq_strerror(zmq_err));
@@ -201,6 +203,7 @@ if (uvzmq_socket_new(loop, zmq_sock, on_recv, NULL, &sock) != 0) {
 ```
 
 常见错误来源：
+
 - 无效参数（NULL指针）
 - ZMQ套接字未正确初始化
 - ZMQ套接字未绑定/连接
@@ -211,6 +214,7 @@ if (uvzmq_socket_new(loop, zmq_sock, on_recv, NULL, &sock) != 0) {
 UVZMQ**不是线程安全的**。每个`uvzmq_socket_t`必须只由单个线程使用。
 
 对于多线程应用程序：
+
 - 为每个线程创建单独的`uvzmq_socket_t`实例
 - 使用单独的ZMQ上下文或适当配置`ZMQ_IO_THREADS`
 - 不要在线程间共享`uvzmq_socket_t`或`zmq_sock`
@@ -223,7 +227,7 @@ UVZMQ**不是线程安全的**。每个`uvzmq_socket_t`必须只由单个线程�
 void on_recv(uvzmq_socket_t *socket, zmq_msg_t *msg, void *user_data) {
     // 处理消息
     zmq_msg_send(msg, uvzmq_get_zmq_socket(socket), 0);
-    
+
     // 必需：关闭消息以避免内存泄漏
     zmq_msg_close(msg);
 }
