@@ -53,7 +53,7 @@ int main(void) {
 
     // Integrate with libuv
     uvzmq_socket_t *uvzmq_sock = NULL;
-    uvzmq_socket_new(&loop, zmq_sock, on_recv, NULL, NULL, &uvzmq_sock);
+    uvzmq_socket_new(&loop, zmq_sock, on_recv, NULL, &uvzmq_sock);
 
     // Run event loop
     int keep_running = 1;
@@ -110,9 +110,9 @@ cmake -DUVZMQ_BUILD_BENCHMARKS=OFF ..
 Initialize UVZMQ socket and integrate with libuv event loop.
 
 ```c
-int uvzmq_socket_new(uv_loop_t *loop, void *zmq_sock,
+int uvzmq_socket_new(uv_loop_t *loop,
+                     void *zmq_sock,
                      uvzmq_recv_callback on_recv,
-                     uvzmq_send_callback on_send,
                      void *user_data,
                      uvzmq_socket_t **socket);
 ```
@@ -121,11 +121,15 @@ int uvzmq_socket_new(uv_loop_t *loop, void *zmq_sock,
 - `loop` - libuv event loop
 - `zmq_sock` - existing ZMQ socket
 - `on_recv` - callback for when socket is readable
-- `on_send` - callback for when socket is writable (currently unused, set to NULL)
 - `user_data` - user data passed to callbacks
 - `socket` - [out] pointer to receive the created uvzmq socket
 
-**Returns:** `UVZMQ_OK` on success, error code on failure
+**Returns:** `0` on success, `-1` on failure
+
+**Error Diagnosis:** On failure, you can diagnose errors by:
+- Check `errno` for system-level errors
+- Call `zmq_errno()` to get ZMQ error code
+- Call `zmq_strerror(zmq_errno())` for error message
 
 #### `uvzmq_socket_close`
 
@@ -183,13 +187,24 @@ int uvzmq_get_fd(uvzmq_socket_t *socket);
 
 ### Error Handling
 
-#### `uvzmq_strerror`
-
-Get error message string.
+All functions return `0` on success and `-1` on failure. To diagnose errors:
 
 ```c
-const char *uvzmq_strerror(int err);
+if (uvzmq_socket_new(loop, zmq_sock, on_recv, NULL, &sock) != 0) {
+    // Check system errno
+    perror("uvzmq_socket_new");
+    
+    // Or check ZMQ errors
+    int zmq_err = zmq_errno();
+    fprintf(stderr, "ZMQ error: %s\n", zmq_strerror(zmq_err));
+}
 ```
+
+Common error sources:
+- Invalid parameters (NULL pointers)
+- ZMQ socket not properly initialized
+- ZMQ socket not bound/connected
+- libuv loop allocation failure
 
 ## Thread Safety
 
