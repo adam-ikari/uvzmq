@@ -75,6 +75,12 @@ int main(void) {
 
 **Important:** Only define `UVZMQ_IMPLEMENTATION` in **ONE** source file. All other files should just include `"uvzmq.h"`.
 
+## Learn More
+
+- 📖 [Tutorial](TUTORIAL.md) - Comprehensive guide with examples and best practices
+- 📚 [API Documentation](docs/index.html) - Detailed API reference (run `make docs`)
+- 🌐 [中文文档](README_CN.md) | [教程](TUTORIAL_CN.md) - Chinese documentation and tutorial
+
 ## Building
 
 ### Prerequisites
@@ -242,6 +248,8 @@ See the `examples/` directory for complete examples:
 - `simple.c` - Basic REQ/REP pattern
 - `best_practices.c` - Complete example with signal handling
 - `test_*.c` - Various test cases
+
+💡 **Tip**: Check out the [Tutorial](TUTORIAL.md) for detailed usage guides and common patterns.
 
 ## Performance
 

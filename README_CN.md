@@ -73,7 +73,13 @@ int main(void) {
 }
 ```
 
-**重要：** 只在**一个**源文件中定义`UVZMQ_IMPLEMENTATION`。所有其他文件应该只包含`"uvzmq.h"`。
+**重要：** 仅在**一个**源文件中定义 `UVZMQ_IMPLEMENTATION`。其他文件只需包含 `"uvzmq.h"`。
+
+## 了解更多
+
+- 📖 [教程](TUTORIAL_CN.md) - 包含示例和最佳实践的完整指南
+- 📚 [API 文档](docs/index.html) - 详细的 API 参考（运行 `make docs`）
+- 🌐 [English](README.md) | [Tutorial](TUTORIAL.md) - 英文文档和教程
 
 ## 构建
 
@@ -242,6 +248,8 @@ void on_recv(uvzmq_socket_t *socket, zmq_msg_t *msg, void *user_data) {
 - `simple.c` - 基本的REQ/REP模式
 - `best_practices.c` - 包含信号处理的完整示例
 - `test_*.c` - 各种测试用例
+
+💡 **提示**：查看 [教程](TUTORIAL_CN.md) 获取详细的使用指南和常见模式示例。
 
 ## 性能
 
