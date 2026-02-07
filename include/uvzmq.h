@@ -270,6 +270,7 @@ int uvzmq_socket_new(uv_loop_t* loop,
     size_t fd_size = sizeof(sock->zmq_fd);
     int rc = zmq_getsockopt(zmq_sock, ZMQ_FD, &sock->zmq_fd, &fd_size);
     if (rc != 0) {
+        free(sock);
         return -1;
     }
 
