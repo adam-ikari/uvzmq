@@ -1,4 +1,4 @@
-.PHONY: all clean format format-docs check-format build test help
+.PHONY: all clean format format-code format-docs check-format build test help
 
 # Default target
 all: build
@@ -19,7 +19,11 @@ clean:
 	@echo "Clean complete!"
 
 # Format all files
-format: format-docs
+format: format-code format-docs
+	@echo "All files formatted!"
+
+# Format code files only
+format-code:
 	@echo "Formatting code with clang-format..."
 	@if command -v clang-format > /dev/null 2>&1; then \
 		find include examples benchmarks -name "*.c" -o -name "*.h" -o -name "*.cpp" | \
@@ -107,6 +111,7 @@ help:
 	@echo "  build            - Build the project"
 	@echo "  clean            - Remove build artifacts"
 	@echo "  format           - Format all files (code and docs)"
+	@echo "  format-code      - Format code files only"
 	@echo "  format-docs      - Format markdown documents"
 	@echo "  check-format     - Check code formatting"
 	@echo "  check-docs-format- Check markdown formatting"
@@ -118,6 +123,7 @@ help:
 	@echo "Examples:"
 	@echo "  make build          # Build the project"
 	@echo "  make format         # Format all files"
+	@echo "  make format-code    # Format code files only"
 	@echo "  make format-docs    # Format markdown docs only"
 	@echo "  make check-format   # Check code formatting"
 	@echo "  make test           # Run tests"
