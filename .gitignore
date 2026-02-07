@@ -7,4 +7,6 @@ build/
 *.exe
 .DS_Store
 .vscode/
-.idea/
+.idea/docs/
+latex/
+html/

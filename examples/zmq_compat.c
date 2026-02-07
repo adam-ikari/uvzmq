@@ -1,60 +1,72 @@
 #define UVZMQ_IMPLEMENTATION
-#include "../include/uvzmq.h"
 #include <stdio.h>
 #include <string.h>
+#include <zmq.h>
 
-int main(void)
-{
+#include "../include/uvzmq.h"
+
+int main(void) {
     printf("UVZMQ ZMQ Compatibility Example\n");
     printf("================================\n\n");
 
     uv_loop_t loop;
     uv_loop_init(&loop);
 
-    uvzmq_context_t *ctx = NULL;
-    int rc = uvzmq_context_new(&loop, &ctx);
-    if (rc != UVZMQ_OK) {
-        fprintf(stderr, "Failed to create context: %s\n", uvzmq_strerror(rc));
+    // Create ZMQ socket directly
+    void* zmq_ctx = zmq_ctx_new();
+    void* zmq_sock = zmq_socket(zmq_ctx, ZMQ_REQ);
+    if (!zmq_sock) {
+        fprintf(stderr, "Failed to create ZMQ socket\n");
         return 1;
     }
 
-    uvzmq_socket_t *sock = NULL;
-    rc = uvzmq_socket_new(ctx, UVZMQ_REQ, &sock);
-    if (rc != UVZMQ_OK) {
-        fprintf(stderr, "Failed to create socket: %s\n", uvzmq_strerror(rc));
-        uvzmq_context_free(ctx);
+    // Create uvzmq socket
+    uvzmq_socket_t* socket = NULL;
+    int rc = uvzmq_socket_new(&loop, zmq_sock, NULL, NULL, &socket);
+    if (rc != 0) {
+        fprintf(stderr, "Failed to create uvzmq socket: %d\n", rc);
+        zmq_close(zmq_sock);
+        zmq_ctx_term(zmq_ctx);
         return 1;
     }
 
     printf("Using ZMQ-compatible socket options:\n");
 
-    rc = uvzmq_setsockopt_int(sock, ZMQ_LINGER, 1000);
-    printf("  Set ZMQ_LINGER to 1000: %s\n", uvzmq_strerror(rc));
+    // Use ZMQ API directly on the socket
+    int linger = 1000;
+    rc = zmq_setsockopt(zmq_sock, ZMQ_LINGER, &linger, sizeof(linger));
+    printf("  Set ZMQ_LINGER to 1000: %s\n",
+           (rc == 0) ? "Success" : zmq_strerror(errno));
 
-    rc = uvzmq_setsockopt_int(sock, ZMQ_RCVTIMEO, 5000);
-    printf("  Set ZMQ_RCVTIMEO to 5000: %s\n", uvzmq_strerror(rc));
+    int rcv_timeout = 5000;
+    rc = zmq_setsockopt(
+        zmq_sock, ZMQ_RCVTIMEO, &rcv_timeout, sizeof(rcv_timeout));
+    printf("  Set ZMQ_RCVTIMEO to 5000: %s\n",
+           (rc == 0) ? "Success" : zmq_strerror(errno));
 
-    rc = uvzmq_setsockopt_int(sock, ZMQ_SNDTIMEO, 5000);
-    printf("  Set ZMQ_SNDTIMEO to 5000: %s\n", uvzmq_strerror(rc));
+    int snd_timeout = 5000;
+    rc = zmq_setsockopt(
+        zmq_sock, ZMQ_SNDTIMEO, &snd_timeout, sizeof(snd_timeout));
+    printf("  Set ZMQ_SNDTIMEO to 5000: %s\n",
+           (rc == 0) ? "Success" : zmq_strerror(errno));
 
-    int linger = 0;
-    rc = uvzmq_getsockopt_int(sock, ZMQ_LINGER, &linger);
-    printf("  Get ZMQ_LINGER: %d (%s)\n", linger, uvzmq_strerror(rc));
+    // Get socket options
+    rc = zmq_getsockopt(
+        zmq_sock, ZMQ_LINGER, &linger, &(size_t){sizeof(linger)});
+    printf("  Get ZMQ_LINGER: %d\n", linger);
 
     int64_t hwm = 0;
-    rc = uvzmq_getsockopt_int64(sock, ZMQ_RCVHWM, &hwm);
-    printf("  Get ZMQ_RCVHWM: %ld (%s)\n", hwm, uvzmq_strerror(rc));
+    rc = zmq_getsockopt(zmq_sock, ZMQ_RCVHWM, &hwm, &(size_t){sizeof(hwm)});
+    printf("  Get ZMQ_RCVHWM: %ld\n", hwm);
 
-    char identity[256];
-    size_t identity_size = sizeof(identity);
-    rc = uvzmq_getsockopt_bin(sock, ZMQ_IDENTITY, identity, &identity_size);
-    printf("  Get ZMQ_IDENTITY: %s\n", uvzmq_strerror(rc));
+    printf(
+        "\nSocket created successfully with UVZMQ but using ZMQ API "
+        "directly!\n");
+    printf("All ZMQ socket options are fully compatible.\n");
 
-    printf("\nSocket created successfully with UVZMQ but using ZMQ API!\n");
-    printf("All ZMQ socket options (int, uint64, bin) are fully compatible.\n");
-
-    uvzmq_socket_free(sock);
-    uvzmq_context_free(ctx);
+    uvzmq_socket_free(socket);
+    zmq_close(zmq_sock);
+    zmq_ctx_term(zmq_ctx);
     uv_loop_close(&loop);
 
     return 0;
