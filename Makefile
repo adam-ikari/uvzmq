@@ -1,4 +1,4 @@
-.PHONY: all clean format build test help
+.PHONY: all clean format format-docs check-format build test help
 
 # Default target
 all: build
@@ -18,15 +18,26 @@ clean:
 	@rm -rf build
 	@echo "Clean complete!"
 
-# Format code with clang-format
-format:
+# Format all files
+format: format-docs
 	@echo "Formatting code with clang-format..."
 	@if command -v clang-format > /dev/null 2>&1; then \
 		find include examples benchmarks -name "*.c" -o -name "*.h" -o -name "*.cpp" | \
 		xargs clang-format -i; \
-		echo "Format complete!"; \
+		echo "Code format complete!"; \
 	else \
 		echo "clang-format not found. Please install clang-format."; \
+		exit 1; \
+	fi
+
+# Format markdown documents
+format-docs:
+	@echo "Formatting markdown documents..."
+	@if command -v prettier > /dev/null 2>&1; then \
+		prettier --write "*.md"; \
+		echo "Markdown format complete!"; \
+	else \
+		echo "prettier not found. Please install prettier: npm install -g prettier"; \
 		exit 1; \
 	fi
 
@@ -36,12 +47,26 @@ check-format:
 	@if command -v clang-format > /dev/null 2>&1; then \
 		files=$$(find include examples benchmarks -name "*.c" -o -name "*.h" -o -name "*.cpp"); \
 		if ! echo "$$files" | xargs clang-format --dry-run --Werror; then \
-			echo "Formatting issues found. Run 'make format' to fix."; \
+			echo "Code formatting issues found. Run 'make format' to fix."; \
 			exit 1; \
 		fi; \
-		echo "All files are properly formatted!"; \
+		echo "All code files are properly formatted!"; \
 	else \
 		echo "clang-format not found. Please install clang-format."; \
+		exit 1; \
+	fi
+
+# Check markdown formatting
+check-docs-format:
+	@echo "Checking markdown formatting..."
+	@if command -v prettier > /dev/null 2>&1; then \
+		if ! prettier --check "*.md"; then \
+			echo "Markdown formatting issues found. Run 'make format-docs' to fix."; \
+			exit 1; \
+		fi; \
+		echo "All markdown files are properly formatted!"; \
+	else \
+		echo "prettier not found. Please install prettier: npm install -g prettier"; \
 		exit 1; \
 	fi
 
@@ -78,20 +103,24 @@ help:
 	@echo "UVZMQ Makefile"
 	@echo ""
 	@echo "Targets:"
-	@echo "  all          - Build the project (default)"
-	@echo "  build        - Build the project"
-	@echo "  clean        - Remove build artifacts"
-	@echo "  format       - Format code with clang-format"
-	@echo "  check-format - Check code formatting"
-	@echo "  test         - Run tests"
-	@echo "  docs         - Generate documentation with doxygen"
-	@echo "  clean-docs   - Remove documentation"
-	@echo "  help         - Show this help message"
+	@echo "  all              - Build the project (default)"
+	@echo "  build            - Build the project"
+	@echo "  clean            - Remove build artifacts"
+	@echo "  format           - Format all files (code and docs)"
+	@echo "  format-docs      - Format markdown documents"
+	@echo "  check-format     - Check code formatting"
+	@echo "  check-docs-format- Check markdown formatting"
+	@echo "  test             - Run tests"
+	@echo "  docs             - Generate documentation with doxygen"
+	@echo "  clean-docs       - Remove documentation"
+	@echo "  help             - Show this help message"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make build       # Build the project"
-	@echo "  make format      # Format all code"
-	@echo "  make test        # Run tests"
-	@echo "  make docs        # Generate documentation"
-	@echo "  make clean-docs   # Clean documentation"
-	@echo "  make clean build # Clean and rebuild"
+	@echo "  make build          # Build the project"
+	@echo "  make format         # Format all files"
+	@echo "  make format-docs    # Format markdown docs only"
+	@echo "  make check-format   # Check code formatting"
+	@echo "  make test           # Run tests"
+	@echo "  make docs           # Generate documentation"
+	@echo "  make clean-docs     # Clean documentation"
+	@echo "  make clean build    # Clean and rebuild"
