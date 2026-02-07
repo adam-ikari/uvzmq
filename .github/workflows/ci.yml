@@ -1,0 +1,174 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        build_type: [Debug, Release]
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libtool automake autoconf libssl-dev
+    
+    - name: Install dependencies (macOS)
+      if: matrix.os == 'macos-latest'
+      run: |
+        brew install automake autoconf libtool openssl
+    
+    - name: Configure CMake
+      run: |
+        mkdir build
+        cd build
+        cmake -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} ..
+    
+    - name: Build
+      run: |
+        cd build
+        make -j$(nproc)
+    
+    - name: Run tests
+      run: |
+        cd build
+        ctest --output-on-failure
+    
+    - name: Run e2e tests
+      run: |
+        chmod +x tests/e2e_test.sh
+        ./tests/e2e_test.sh
+  
+  asan-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libtool automake autoconf libssl-dev
+    
+    - name: Build with ASAN
+      run: |
+        mkdir build_asan
+        cd build_asan
+        cmake -DUVZMQ_ENABLE_ASAN=ON ..
+        make -j$(nproc)
+    
+    - name: Run tests with ASAN
+      run: |
+        cd build_asan
+        ctest --output-on-failure
+  
+  tsan-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libtool automake autoconf libssl-dev
+    
+    - name: Build with TSAN
+      run: |
+        mkdir build_tsan
+        cd build_tsan
+        cmake -DUVZMQ_ENABLE_TSAN=ON ..
+        make -j$(nproc)
+    
+    - name: Run tests with TSAN
+      run: |
+        cd build_tsan
+        ctest --output-on-failure
+  
+  coverage:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libtool automake autoconf libssl-dev lcov
+    
+    - name: Build with coverage
+      run: |
+        mkdir build_coverage
+        cd build_coverage
+        cmake -DUVZMQ_ENABLE_COVERAGE=ON ..
+        make -j$(nproc)
+    
+    - name: Run tests
+      run: |
+        cd build_coverage
+        ctest --output-on-failure
+    
+    - name: Generate coverage report
+      run: |
+        cd build_coverage
+        lcov --capture --directory . --output-file coverage.info
+        lcov --remove coverage.info '/usr/*' '*/third_party/*' '*/tests/*' --output-file coverage.info
+        lcov --list coverage.info
+    
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./build_coverage/coverage.info
+        fail_ci_if_error: false
+  
+  code-formatting:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install clang-format
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y clang-format
+    
+    - name: Check code formatting
+      run: |
+        make check-format || (echo "Code formatting issues found. Run 'make format' to fix." && exit 1)
+  
+  markdown-formatting:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+    
+    - name: Install prettier
+      run: npm install -g prettier
+    
+    - name: Check markdown formatting
+      run: |
+        make check-docs-format || (echo "Markdown formatting issues found. Run 'make format-docs' to fix." && exit 1)
