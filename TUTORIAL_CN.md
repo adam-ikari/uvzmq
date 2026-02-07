@@ -351,7 +351,84 @@ if (uvzmq_socket_new(loop, zmq_sock, on_recv, NULL, &socket) != 0) {
 
 ## 性能技巧
 
-### 1. 使用批量处理
+### 1. 理解 libuv 运行模式
+
+libuv 的 `uv_run()` 函数有多种运行模式，选择合适的模式对性能和行为有重要影响：
+
+#### UV_RUN_DEFAULT
+
+```c
+uv_run(&loop, UV_RUN_DEFAULT);
+```
+
+- **行为**: 运行循环直到没有活动句柄
+- **特点**: 阻塞式，直到所有工作完成
+- **用途**: 服务器应用，需要持续运行直到所有任务完成
+- **注意**: 如果有定时器或其他周期性任务，循环不会退出
+
+#### UV_RUN_ONCE
+
+```c
+while (keep_running) {
+    uv_run(&loop, UV_RUN_ONCE);
+}
+```
+
+- **行为**: 运行一个事件循环迭代
+- **特点**: 处理一次事件后返回
+- **用途**: 需要与其他逻辑混合使用
+- **优势**: 可以控制循环执行，方便添加自定义逻辑
+
+#### UV_RUN_NOWAIT
+
+```c
+uv_run(&loop, UV_RUN_NOWAIT);
+```
+
+- **行为**: 立即返回，不等待任何事件
+- **特点**: 非阻塞，检查是否有事件就绪
+- **用途**: 轮询式处理，需要快速检查的场合
+- **注意**: 可能消耗 CPU 资源
+
+#### 性能对比
+
+```c
+// 示例 1: UV_RUN_DEFAULT（推荐用于服务器）
+uv_run(&loop, UV_RUN_DEFAULT);  // 最简单，CPU 利用率低
+
+// 示例 2: UV_RUN_ONCE（推荐用于需要控制的场景）
+while (keep_running) {
+    uv_run(&loop, UV_RUN_ONCE);  // 灵活，CPU 利用率适中
+    // 可以添加其他逻辑
+}
+
+// 示例 3: UV_RUN_NOWAIT（仅用于特殊场景）
+while (keep_running) {
+    uv_run(&loop, UV_RUN_NOWAIT);  // 消耗 CPU
+    usleep(1000);  // 需要手动控制
+}
+```
+
+#### 最佳实践
+
+```c
+// 服务器应用（推荐）
+uv_run(&loop, UV_RUN_DEFAULT);
+
+// 需要优雅关闭的应用
+int keep_running = 1;
+while (keep_running) {
+    uv_run(&loop, UV_RUN_ONCE);
+    // 检查关闭信号
+}
+
+// 测试或调试
+for (int i = 0; i < 10; i++) {
+    uv_run(&loop, UV_RUN_ONCE);
+}
+```
+
+### 2. 使用批量处理
 
 UVZMQ 自动批量处理最多 1000 条消息/事件。对于超高吞吐量，可以调整常量：
 

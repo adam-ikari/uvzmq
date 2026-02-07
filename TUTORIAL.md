@@ -351,7 +351,84 @@ if (uvzmq_socket_new(loop, zmq_sock, on_recv, NULL, &socket) != 0) {
 
 ## Performance Tips
 
-### 1. Use Batch Processing
+### 1. Understanding libuv Run Modes
+
+libuv's `uv_run()` function has multiple modes, and choosing the right one is important for performance and behavior:
+
+#### UV_RUN_DEFAULT
+
+```c
+uv_run(&loop, UV_RUN_DEFAULT);
+```
+
+- **Behavior**: Runs the loop until there are no active handles
+- **Characteristics**: Blocking, until all work is done
+- **Use Case**: Server applications that need to run continuously
+- **Note**: The loop won't exit if there are timers or other periodic tasks
+
+#### UV_RUN_ONCE
+
+```c
+while (keep_running) {
+    uv_run(&loop, UV_RUN_ONCE);
+}
+```
+
+- **Behavior**: Runs one event loop iteration
+- **Characteristics**: Processes one iteration then returns
+- **Use Case**: When you need to mix with other logic
+- **Advantage**: Gives you control over loop execution, allows custom logic
+
+#### UV_RUN_NOWAIT
+
+```c
+uv_run(&loop, UV_RUN_NOWAIT);
+```
+
+- **Behavior**: Returns immediately without waiting for events
+- **Characteristics**: Non-blocking, checks if events are ready
+- **Use Case**: Polling-style processing, when you need to check quickly
+- **Note**: May consume CPU resources
+
+#### Performance Comparison
+
+```c
+// Example 1: UV_RUN_DEFAULT (recommended for servers)
+uv_run(&loop, UV_RUN_DEFAULT);  // Simplest, low CPU usage
+
+// Example 2: UV_RUN_ONCE (recommended for controlled scenarios)
+while (keep_running) {
+    uv_run(&loop, UV_RUN_ONCE);  // Flexible, moderate CPU usage
+    // Can add other logic
+}
+
+// Example 3: UV_RUN_NOWAIT (special cases only)
+while (keep_running) {
+    uv_run(&loop, UV_RUN_NOWAIT);  // Consumes CPU
+    usleep(1000);  // Need manual control
+}
+```
+
+#### Best Practices
+
+```c
+// Server application (recommended)
+uv_run(&loop, UV_RUN_DEFAULT);
+
+// Application needing graceful shutdown
+int keep_running = 1;
+while (keep_running) {
+    uv_run(&loop, UV_RUN_ONCE);
+    // Check for shutdown signals
+}
+
+// Testing or debugging
+for (int i = 0; i < 10; i++) {
+    uv_run(&loop, UV_RUN_ONCE);
+}
+```
+
+### 2. Use Batch Processing
 
 UVZMQ automatically batches up to 1000 messages per event. For very high throughput, you can adjust the constants:
 
