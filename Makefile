@@ -84,6 +84,22 @@ test:
 		exit 1; \
 	fi
 
+# Run tests with ASAN
+test-asan:
+	@echo "Running tests with AddressSanitizer..."
+	@if [ -d "build_asan" ]; then \
+		rm -rf build_asan; \
+	fi
+	@mkdir build_asan && cd build_asan && cmake -DUVZMQ_ENABLE_ASAN=ON .. && make -j$$(nproc) && ctest --output-on-failure
+
+# Run tests with TSAN
+test-tsan:
+	@echo "Running tests with ThreadSanitizer..."
+	@if [ -d "build_tsan" ]; then \
+		rm -rf build_tsan; \
+	fi
+	@mkdir build_tsan && cd build_tsan && cmake -DUVZMQ_ENABLE_TSAN=ON .. && make -j$$(nproc) && ctest --output-on-failure
+
 # Run end-to-end tests
 e2e-test:
 	@echo "Running end-to-end tests..."
@@ -154,6 +170,8 @@ help:
 	@echo "  check-format     - Check code formatting"
 	@echo "  check-docs-format- Check markdown formatting"
 	@echo "  test             - Run tests"
+	@echo "  test-asan        - Run tests with AddressSanitizer"
+	@echo "  test-tsan        - Run tests with ThreadSanitizer"
 	@echo "  e2e-test         - Run end-to-end tests"
 	@echo "  coverage         - Run tests with coverage"
 	@echo "  coverage-report  - Generate coverage report"
@@ -168,6 +186,8 @@ help:
 	@echo "  make format-docs      # Format markdown docs only"
 	@echo "  make check-format     # Check code formatting"
 	@echo "  make test            # Run tests"
+	@echo "  make test-asan       # Run tests with AddressSanitizer"
+	@echo "  make test-tsan       # Run tests with ThreadSanitizer"
 	@echo "  make e2e-test        # Run end-to-end tests"
 	@echo "  make coverage-report # Generate coverage report"
 	@echo "  make docs            # Generate documentation"

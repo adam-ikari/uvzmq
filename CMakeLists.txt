@@ -15,12 +15,28 @@ option(UVZMQ_BUILD_TESTS "Build tests" ON)
 option(UVZMQ_BUILD_BENCHMARKS "Build benchmarks" ON)
 option(UVZMQ_BUILD_EXAMPLES "Build examples" ON)
 option(UVZMQ_ENABLE_COVERAGE "Enable code coverage" OFF)
+option(UVZMQ_ENABLE_ASAN "Enable AddressSanitizer" OFF)
+option(UVZMQ_ENABLE_TSAN "Enable ThreadSanitizer" OFF)
 
 # Code coverage
 if(UVZMQ_ENABLE_COVERAGE)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
+endif()
+
+# AddressSanitizer
+if(UVZMQ_ENABLE_ASAN)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+endif()
+
+# ThreadSanitizer
+if(UVZMQ_ENABLE_TSAN)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=thread")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=thread")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=thread")
 endif()
 
 # gtest
