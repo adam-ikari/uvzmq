@@ -39,6 +39,11 @@ if(UVZMQ_ENABLE_TSAN)
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=thread")
 endif()
 
+# Check for mutually exclusive sanitizers
+if(UVZMQ_ENABLE_ASAN AND UVZMQ_ENABLE_TSAN)
+    message(FATAL_ERROR "ASAN and TSAN cannot be enabled together")
+endif()
+
 # gtest
 if(UVZMQ_BUILD_TESTS)
     add_subdirectory(third_party/gtest EXCLUDE_FROM_ALL)

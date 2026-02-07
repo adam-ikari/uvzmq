@@ -125,7 +125,7 @@ coverage:
 coverage-report:
 	@echo "Generating coverage report..."
 	@if [ ! -d "build" ]; then \
-		echo "Build directory not found. Run 'make build first."; \
+		echo "Build directory not found. Run 'make build' first."; \
 		exit 1; \
 	fi
 	@if command -v lcov > /dev/null 2>&1; then \

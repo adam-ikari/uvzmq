@@ -22,6 +22,10 @@
 #ifndef UVZMQ_H
 #define UVZMQ_H
 
+/* Batch processing configuration */
+#define UVZMQ_MAX_BATCH_SIZE 1000  /**< Maximum messages to process in one batch */
+#define UVZMQ_BATCH_CHECK_INTERVAL 50  /**< Check ZMQ events every N messages */
+
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -72,6 +76,7 @@ struct uvzmq_socket_s {
     void* user_data;             /**< user data */
     int closed;                  /**< socket closed flag */
     uv_poll_t* poll_handle;      /**< libuv poll handle */
+    int ref_count;               /**< reference count for async cleanup */
 };
 
 /**
@@ -219,7 +224,7 @@ static void uvzmq_poll_callback(uv_poll_t* handle, int status, int events) {
                 socket->on_recv(socket, &msg, socket->user_data);
                 batch_count++;
 
-                if (batch_count % 50 == 0) {
+                if (batch_count % UVZMQ_BATCH_CHECK_INTERVAL == 0) {
                     int zmq_events;
                     size_t events_size = sizeof(zmq_events);
                     if (zmq_getsockopt(socket->zmq_sock,
@@ -232,7 +237,7 @@ static void uvzmq_poll_callback(uv_poll_t* handle, int status, int events) {
                     }
                 }
 
-                if (batch_count >= 1000) {
+                if (batch_count >= UVZMQ_MAX_BATCH_SIZE) {
                     break;
                 }
             } else if (errno == EAGAIN) {
@@ -266,6 +271,7 @@ int uvzmq_socket_new(uv_loop_t* loop,
     sock->on_recv = on_recv;
     sock->user_data = user_data;
     sock->closed = 0;
+    sock->ref_count = 0;
 
     size_t fd_size = sizeof(sock->zmq_fd);
     int rc = zmq_getsockopt(zmq_sock, ZMQ_FD, &sock->zmq_fd, &fd_size);
@@ -306,12 +312,19 @@ int uvzmq_socket_new(uv_loop_t* loop,
  * @brief libuv handle close callback
  *
  * This callback is called when the poll handle is closed.
- * It frees the poll handle memory.
+ * It decrements the reference count and frees the socket if count reaches 0.
  *
  * @param handle libuv handle
  */
 static void on_close_callback(uv_handle_t* handle) {
-    free(handle);
+    uv_poll_t* poll_handle = (uv_poll_t*)handle;
+    uvzmq_socket_t* socket = (uvzmq_socket_t*)poll_handle->data;
+
+    if (socket && --socket->ref_count == 0) {
+        free(socket);
+    }
+
+    free(poll_handle);
 }
 
 /**
@@ -357,12 +370,12 @@ int uvzmq_socket_free(uvzmq_socket_t* socket) {
     }
 
     if (socket->poll_handle) {
+        socket->ref_count++;
         uv_poll_stop(socket->poll_handle);
         uv_close((uv_handle_t*)socket->poll_handle, on_close_callback);
         socket->poll_handle = NULL;
     }
 
-    free(socket);
     return 0;
 }
 
