@@ -14,6 +14,14 @@ endif()
 option(UVZMQ_BUILD_TESTS "Build tests" ON)
 option(UVZMQ_BUILD_BENCHMARKS "Build benchmarks" ON)
 option(UVZMQ_BUILD_EXAMPLES "Build examples" ON)
+option(UVZMQ_ENABLE_COVERAGE "Enable code coverage" OFF)
+
+# Code coverage
+if(UVZMQ_ENABLE_COVERAGE)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
+endif()
 
 # gtest
 if(UVZMQ_BUILD_TESTS)

@@ -1,4 +1,4 @@
-.PHONY: all clean format format-code format-docs check-format build test e2e-test help
+.PHONY: all clean format format-code format-docs check-format build test e2e-test coverage coverage-report help
 
 # Default target
 all: build
@@ -95,6 +95,34 @@ e2e-test:
 		exit 1; \
 	fi
 
+# Run tests with coverage
+coverage:
+	@echo "Running tests with coverage..."
+	@if [ -d "build" ]; then \
+		cd build && ctest --output-on-failure; \
+	else \
+		echo "Build directory not found. Run 'make build' first."; \
+		exit 1; \
+	fi
+
+# Generate coverage report
+coverage-report:
+	@echo "Generating coverage report..."
+	@if [ ! -d "build" ]; then \
+		echo "Build directory not found. Run 'make build first."; \
+		exit 1; \
+	fi
+	@if command -v lcov > /dev/null 2>&1; then \
+		lcov --capture --directory build --output-file coverage.info; \
+		lcov --remove coverage.info '/usr/*' '*/third_party/*' '*/tests/*' --output-file coverage.info; \
+		lcov --list coverage.info; \
+		genhtml coverage.info --output-directory coverage_report; \
+		echo "Coverage report generated in coverage_report/index.html"; \
+	else \
+		echo "lcov not found. Install with: sudo apt-get install lcov"; \
+		exit 1; \
+	fi
+
 # Generate documentation with doxygen
 docs:
 	@echo "Generating documentation..."
@@ -127,18 +155,21 @@ help:
 	@echo "  check-docs-format- Check markdown formatting"
 	@echo "  test             - Run tests"
 	@echo "  e2e-test         - Run end-to-end tests"
+	@echo "  coverage         - Run tests with coverage"
+	@echo "  coverage-report  - Generate coverage report"
 	@echo "  docs             - Generate documentation with doxygen"
 	@echo "  clean-docs       - Remove documentation"
 	@echo "  help             - Show this help message"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make build          # Build the project"
-	@echo "  make format         # Format all files"
-	@echo "  make format-code    # Format code files only"
-	@echo "  make format-docs    # Format markdown docs only"
-	@echo "  make check-format   # Check code formatting"
-	@echo "  make test           # Run tests"
-	@echo "  make e2e-test       # Run end-to-end tests"
-	@echo "  make docs           # Generate documentation"
-	@echo "  make clean-docs     # Clean documentation"
-	@echo "  make clean build    # Clean and rebuild"
+	@echo "  make build            # Build the project"
+	@echo "  make format           # Format all files"
+	@echo "  make format-code      # Format code files only"
+	@echo "  make format-docs      # Format markdown docs only"
+	@echo "  make check-format     # Check code formatting"
+	@echo "  make test            # Run tests"
+	@echo "  make e2e-test        # Run end-to-end tests"
+	@echo "  make coverage-report # Generate coverage report"
+	@echo "  make docs            # Generate documentation"
+	@echo "  make clean-docs      # Clean documentation"
+	@echo "  make clean build     # Clean and rebuild"
