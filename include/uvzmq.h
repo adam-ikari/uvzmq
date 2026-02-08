@@ -458,6 +458,20 @@ int uvzmq_socket_new(uv_loop_t* loop,
         return -1;
     }
 
+#ifdef DEBUG
+    /* Validate socket type in debug mode */
+    int socket_type;
+    size_t type_size = sizeof(socket_type);
+    if (zmq_getsockopt(zmq_sock, ZMQ_TYPE, &socket_type, &type_size) == 0) {
+        if (socket_type == ZMQ_PUB || socket_type == ZMQ_PUSH) {
+            fprintf(stderr,
+                    "[WARNING] Socket type %d cannot receive messages. "
+                    "UVZMQ monitors for readable events.\n",
+                    socket_type);
+        }
+    }
+#endif
+
     uv_poll_t* poll_handle = (uv_poll_t*)malloc(sizeof(uv_poll_t));
     if (!poll_handle) {
         free(sock);

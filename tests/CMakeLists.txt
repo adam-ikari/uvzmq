@@ -80,3 +80,16 @@ target_link_libraries(test_uvzmq_integration
 )
 
 add_test(NAME test_uvzmq_integration COMMAND test_uvzmq_integration)
+
+# Test 7: edge cases and stress tests
+add_executable(test_uvzmq_edge_cases test_uvzmq_edge_cases.cpp)
+target_link_libraries(test_uvzmq_edge_cases
+    gtest
+    gtest_main
+    uv_a
+    ${CMAKE_BINARY_DIR}/third_party/zmq/lib/libzmq.a
+    pthread
+    stdc++
+)
+
+add_test(NAME test_uvzmq_edge_cases COMMAND test_uvzmq_edge_cases)
