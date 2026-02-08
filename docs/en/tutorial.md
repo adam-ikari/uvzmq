@@ -24,6 +24,30 @@ UVZMQ is a minimal library that bridges ZeroMQ and libuv, enabling event-driven 
 - **Zero-Copy**: Compatible with ZMQ's zero-copy messaging
 - **Header-Only**: Single file integration, no build dependencies
 
+### ⚠️ Important: libuv Single-Threaded Model
+
+**libuv is fundamentally a single-threaded event loop library.** This is a critical design choice that affects how you use UVZMQ:
+
+- **Each event loop runs in a single thread**: All callbacks and I/O operations for a given `uv_loop_t` must occur in the same thread that created it
+- **No cross-thread operations**: Never access a `uvzmq_socket_t`, `uv_loop_t`, or any libuv handle from a different thread
+- **Multi-threaded applications**: If you need multiple threads, create separate event loops and separate `uvzmq_socket_t` instances for each thread
+- **Thread-safe patterns**: Use ZMQ's built-in multi-threading features (like `ZMQ_IO_THREADS`) for concurrent processing, not libuv
+
+**Why this matters:**
+```c
+// ❌ WRONG: Sharing uvzmq_socket across threads
+pthread_t thread1, thread2;
+pthread_create(&thread1, NULL, worker_thread, uvzmq_sock);  // DANGEROUS!
+pthread_create(&thread2, NULL, worker_thread, uvzmq_sock);  // DANGEROUS!
+
+// ✅ CORRECT: Each thread has its own socket
+pthread_t thread1, thread2;
+pthread_create(&thread1, NULL, worker_thread, create_socket_for_thread1());
+pthread_create(&thread2, NULL, worker_thread, create_socket_for_thread2());
+```
+
+For more details, see [Best Practices](#best-practices) and the [Troubleshooting](#troubleshooting) section.
+
 ---
 
 ## Installation
@@ -78,12 +102,12 @@ void on_recv(uvzmq_socket_t* socket, zmq_msg_t* msg, void* user_data) {
     // Get message data
     size_t size = zmq_msg_size(msg);
     const char* data = (const char*)zmq_msg_data(msg);
-    
+
     printf("Received: %.*s\n", (int)size, data);
-    
+
     // Echo back (zero-copy)
     zmq_msg_send(msg, uvzmq_get_zmq_socket(socket), 0);
-    
+
     // IMPORTANT: Close the message
     zmq_msg_close(msg);
 }
@@ -92,12 +116,12 @@ int main(void) {
     // Initialize libuv
     uv_loop_t loop;
     uv_loop_init(&loop);
-    
+
     // Create ZMQ context and socket
     void* zmq_ctx = zmq_ctx_new();
     void* zmq_sock = zmq_socket(zmq_ctx, ZMQ_REP);
     zmq_bind(zmq_sock, "tcp://*:5555");
-    
+
     // Integrate with libuv
     uvzmq_socket_t* uvzmq_sock = NULL;
     int rc = uvzmq_socket_new(&loop, zmq_sock, on_recv, NULL, &uvzmq_sock);
@@ -105,17 +129,17 @@ int main(void) {
         fprintf(stderr, "Failed to create UVZMQ socket\n");
         return 1;
     }
-    
+
     // Run event loop
     printf("Server running on tcp://*:5555\n");
     uv_run(&loop, UV_RUN_DEFAULT);
-    
+
     // Cleanup
     uvzmq_socket_free(uvzmq_sock);
     zmq_close(zmq_sock);
     zmq_ctx_term(zmq_ctx);
     uv_loop_close(&loop);
-    
+
     return 0;
 }
 ```
@@ -131,11 +155,11 @@ int main(void) {
     void* context = zmq_ctx_new();
     void* socket = zmq_socket(context, ZMQ_REQ);
     zmq_connect(socket, "tcp://localhost:5555");
-    
+
     // Send message
     const char* msg = "Hello from client";
     zmq_send(socket, msg, strlen(msg), 0);
-    
+
     // Receive reply
     char buffer[256];
     int size = zmq_recv(socket, buffer, sizeof(buffer) - 1, 0);
@@ -143,11 +167,11 @@ int main(void) {
         buffer[size] = '\0';
         printf("Received: %s\n", buffer);
     }
-    
+
     // Cleanup
     zmq_close(socket);
     zmq_ctx_term(context);
-    
+
     return 0;
 }
 ```
@@ -215,7 +239,7 @@ Each thread must have its own `uvzmq_socket_t` instance.
 void on_recv(uvzmq_socket_t* socket, zmq_msg_t* msg, void* user_data) {
     // Process message
     zmq_msg_send(msg, uvzmq_get_zmq_socket(socket), 0);
-    
+
     // REQUIRED: Close to avoid memory leak
     zmq_msg_close(msg);
 }
@@ -238,11 +262,11 @@ int rc = uvzmq_socket_new(&loop, zmq_sock, on_recv, NULL, &uvzmq_sock);
 if (rc != 0) {
     // Check system error
     perror("uvzmq_socket_new");
-    
+
     // Or check ZMQ error
     int zmq_err = zmq_errno();
     fprintf(stderr, "ZMQ error: %s\n", zmq_strerror(zmq_err));
-    
+
     return 1;
 }
 ```
@@ -269,7 +293,7 @@ uvzmq_socket_new(&loop2, zmq_sock2, callback2, NULL, &socket2);
 void on_recv(uvzmq_socket_t* socket, zmq_msg_t* msg, void* user_data) {
     // Reuse message instead of copying
     zmq_msg_send(msg, uvzmq_get_zmq_socket(socket), 0);
-    
+
     // Still need to close after send
     zmq_msg_close(msg);
 }
@@ -320,7 +344,7 @@ zmq_setsockopt(sub_sock, ZMQ_SUBSCRIBE, "", 0);
 void on_recv(uvzmq_socket_t* socket, zmq_msg_t* msg, void* user_data) {
     // Process message
     // ...
-    
+
     // MUST close!
     zmq_msg_close(msg);
 }

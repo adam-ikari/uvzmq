@@ -1,10 +1,16 @@
-.PHONY: all clean format format-code format-docs check-format build test e2e-test coverage coverage-report help
+.PHONY: all clean deps format format-code format-docs check-format build test e2e-test coverage coverage-report quick-benchmark help
 
 # Default target
 all: build
 
+# Update dependencies (git submodules)
+deps:
+	@echo "Updating dependencies..."
+	@git submodule update --init --recursive
+	@echo "Dependencies updated!"
+
 # Build the project
-build:
+build: deps
 	@echo "Building uvzmq..."
 	@if [ ! -d "build" ]; then \
 		cmake -B build -DUVZMQ_BUILD_EXAMPLES=ON; \
@@ -14,8 +20,10 @@ build:
 
 # Clean build artifacts
 clean:
-	@echo "Cleaning build directory..."
-	@rm -rf build
+	@echo "Cleaning build artifacts..."
+	@rm -rf build build_asan build_tsan
+	@rm -rf latex Testing coverage_report
+	@rm -f coverage.info
 	@echo "Clean complete!"
 
 # Format all files
@@ -26,7 +34,7 @@ format: format-code format-docs
 format-code:
 	@echo "Formatting code with clang-format..."
 	@if command -v clang-format > /dev/null 2>&1; then \
-		find include examples benchmarks -name "*.c" -o -name "*.h" -o -name "*.cpp" | \
+		find include examples benchmarks \( -name "*.c" -o -name "*.h" -o -name "*.cpp" \) | \
 		xargs clang-format -i; \
 		echo "Code format complete!"; \
 	else \
@@ -49,7 +57,7 @@ format-docs:
 check-format:
 	@echo "Checking code formatting..."
 	@if command -v clang-format > /dev/null 2>&1; then \
-		files=$$(find include examples benchmarks -name "*.c" -o -name "*.h" -o -name "*.cpp"); \
+		files=$$(find include examples benchmarks \( -name "*.c" -o -name "*.h" -o -name "*.cpp" \)); \
 		if ! echo "$$files" | xargs clang-format --dry-run --Werror; then \
 			echo "Code formatting issues found. Run 'make format' to fix."; \
 			exit 1; \
@@ -139,12 +147,19 @@ coverage-report:
 		exit 1; \
 	fi
 
-# Generate documentation with doxygen
-docs:
+# Quick performance benchmark
+quick-benchmark:
+	@echo "Running quick performance benchmark..."
+	@if [ ! -f "build/benchmarks/quick_benchmark" ]; then \
+		cmake --build build --target quick_benchmark -j$$(nproc); \
+	fi
+	@cd build/benchmarks && ./quick_benchmark
+
+# Generate documentation with doxygendocs:
 	@echo "Generating documentation..."
 	@if command -v doxygen > /dev/null 2>&1; then \
 		doxygen Doxyfile; \
-		echo "Documentation generated in docs/"; \
+		echo "Documentation generated in docs/api/index.html"; \
 	else \
 		echo "doxygen not found. Please install doxygen."; \
 		exit 1; \
@@ -153,7 +168,7 @@ docs:
 # Clean documentation
 clean-docs:
 	@echo "Cleaning documentation..."
-	@rm -rf docs html
+	@rm -rf docs/api
 	@echo "Documentation cleaned!"
 
 # Show help
@@ -163,24 +178,27 @@ help:
 	@echo "Targets:"
 	@echo "  all              - Build the project (default)"
 	@echo "  build            - Build the project"
+	@echo "  deps             - Update dependencies (git submodules)"
 	@echo "  clean            - Remove build artifacts"
 	@echo "  format           - Format all files (code and docs)"
 	@echo "  format-code      - Format code files only"
 	@echo "  format-docs      - Format markdown documents"
 	@echo "  check-format     - Check code formatting"
-	@echo "  check-docs-format- Check markdown formatting"
+	@echo "  check-docs-format  - Check markdown formatting"
 	@echo "  test             - Run tests"
 	@echo "  test-asan        - Run tests with AddressSanitizer"
 	@echo "  test-tsan        - Run tests with ThreadSanitizer"
 	@echo "  e2e-test         - Run end-to-end tests"
 	@echo "  coverage         - Run tests with coverage"
 	@echo "  coverage-report  - Generate coverage report"
+	@echo "  quick-benchmark  - Run quick performance benchmark"
 	@echo "  docs             - Generate documentation with doxygen"
 	@echo "  clean-docs       - Remove documentation"
 	@echo "  help             - Show this help message"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make build            # Build the project"
+	@echo "  make deps             # Update dependencies"
 	@echo "  make format           # Format all files"
 	@echo "  make format-code      # Format code files only"
 	@echo "  make format-docs      # Format markdown docs only"
@@ -190,6 +208,7 @@ help:
 	@echo "  make test-tsan       # Run tests with ThreadSanitizer"
 	@echo "  make e2e-test        # Run end-to-end tests"
 	@echo "  make coverage-report # Generate coverage report"
+	@echo "  make quick-benchmark # Run quick performance benchmark"
 	@echo "  make docs            # Generate documentation"
 	@echo "  make clean-docs      # Clean documentation"
 	@echo "  make clean build     # Clean and rebuild"

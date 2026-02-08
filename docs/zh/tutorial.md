@@ -24,6 +24,30 @@ UVZMQ 是一个极简的库，用于桥接 ZeroMQ 和 libuv，实现基于事件
 - **零拷贝**: 兼容 ZMQ 的零拷贝消息传递
 - **单文件库**: 单头文件集成，无构建依赖
 
+### ⚠️ 重要：libuv 单线程模型
+
+**libuv 从根本上是一个单线程事件循环库。** 这是一个关键的设计选择，会影响你使用 UVZMQ 的方式：
+
+- **每个事件循环在单个线程中运行**：给定 `uv_loop_t` 的所有回调和 I/O 操作必须在创建它的同一线程中执行
+- **禁止跨线程操作**：永远不要从不同的线程访问 `uvzmq_socket_t`、`uv_loop_t` 或任何 libuv 句柄
+- **多线程应用程序**：如果需要多个线程，为每个线程创建单独的事件循环和单独的 `uvzmq_socket_t` 实例
+- **线程安全模式**：使用 ZMQ 内置的多线程功能（如 `ZMQ_IO_THREADS`）进行并发处理，而不是 libuv
+
+**为什么这很重要：**
+```c
+// ❌ 错误：在线程间共享 uvzmq_socket
+pthread_t thread1, thread2;
+pthread_create(&thread1, NULL, worker_thread, uvzmq_sock);  // 危险！
+pthread_create(&thread2, NULL, worker_thread, uvzmq_sock);  // 危险！
+
+// ✅ 正确：每个线程有自己的 socket
+pthread_t thread1, thread2;
+pthread_create(&thread1, NULL, worker_thread, create_socket_for_thread1());
+pthread_create(&thread2, NULL, worker_thread, create_socket_for_thread2());
+```
+
+更多详情请参阅 [最佳实践](#最佳实践) 和 [故障排除](#故障排除) 部分。
+
 ---
 
 ## 安装
@@ -78,12 +102,12 @@ void on_recv(uvzmq_socket_t* socket, zmq_msg_t* msg, void* user_data) {
     // 获取消息数据
     size_t size = zmq_msg_size(msg);
     const char* data = (const char*)zmq_msg_data(msg);
-    
+
     printf("收到: %.*s\n", (int)size, data);
-    
+
     // 回显（零拷贝）
     zmq_msg_send(msg, uvzmq_get_zmq_socket(socket), 0);
-    
+
     // 重要：关闭消息
     zmq_msg_close(msg);
 }
@@ -92,12 +116,12 @@ int main(void) {
     // 初始化 libuv
     uv_loop_t loop;
     uv_loop_init(&loop);
-    
+
     // 创建 ZMQ 上下文和 socket
     void* zmq_ctx = zmq_ctx_new();
     void* zmq_sock = zmq_socket(zmq_ctx, ZMQ_REP);
     zmq_bind(zmq_sock, "tcp://*:5555");
-    
+
     // 集成到 libuv
     uvzmq_socket_t* uvzmq_sock = NULL;
     int rc = uvzmq_socket_new(&loop, zmq_sock, on_recv, NULL, &uvzmq_sock);
@@ -105,17 +129,17 @@ int main(void) {
         fprintf(stderr, "创建 UVZMQ socket 失败\n");
         return 1;
     }
-    
+
     // 运行事件循环
     printf("服务器运行在 tcp://*:5555\n");
     uv_run(&loop, UV_RUN_DEFAULT);
-    
+
     // 清理
     uvzmq_socket_free(uvzmq_sock);
     zmq_close(zmq_sock);
     zmq_ctx_term(zmq_ctx);
     uv_loop_close(&loop);
-    
+
     return 0;
 }
 ```
@@ -131,11 +155,11 @@ int main(void) {
     void* context = zmq_ctx_new();
     void* socket = zmq_socket(context, ZMQ_REQ);
     zmq_connect(socket, "tcp://localhost:5555");
-    
+
     // 发送消息
     const char* msg = "来自客户端的问候";
     zmq_send(socket, msg, strlen(msg), 0);
-    
+
     // 接收回复
     char buffer[256];
     int size = zmq_recv(socket, buffer, sizeof(buffer) - 1, 0);
@@ -143,11 +167,11 @@ int main(void) {
         buffer[size] = '\0';
         printf("收到: %s\n", buffer);
     }
-    
+
     // 清理
     zmq_close(socket);
     zmq_ctx_term(context);
-    
+
     return 0;
 }
 ```
@@ -215,7 +239,7 @@ zmq_connect(pull_sock, "tcp://localhost:5557");
 void on_recv(uvzmq_socket_t* socket, zmq_msg_t* msg, void* user_data) {
     // 处理消息
     zmq_msg_send(msg, uvzmq_get_zmq_socket(socket), 0);
-    
+
     // 必须关闭以避免内存泄漏
     zmq_msg_close(msg);
 }
@@ -238,11 +262,11 @@ int rc = uvzmq_socket_new(&loop, zmq_sock, on_recv, NULL, &uvzmq_sock);
 if (rc != 0) {
     // 检查系统错误
     perror("uvzmq_socket_new");
-    
+
     // 或检查 ZMQ 错误
     int zmq_err = zmq_errno();
     fprintf(stderr, "ZMQ 错误: %s\n", zmq_strerror(zmq_err));
-    
+
     return 1;
 }
 ```
@@ -269,7 +293,7 @@ uvzmq_socket_new(&loop2, zmq_sock2, callback2, NULL, &socket2);
 void on_recv(uvzmq_socket_t* socket, zmq_msg_t* msg, void* user_data) {
     // 重用消息而不是复制
     zmq_msg_send(msg, uvzmq_get_zmq_socket(socket), 0);
-    
+
     // 发送后仍需关闭
     zmq_msg_close(msg);
 }
@@ -320,7 +344,7 @@ zmq_setsockopt(sub_sock, ZMQ_SUBSCRIBE, "", 0);
 void on_recv(uvzmq_socket_t* socket, zmq_msg_t* msg, void* user_data) {
     // 处理消息
     // ...
-    
+
     // 必须关闭！
     zmq_msg_close(msg);
 }

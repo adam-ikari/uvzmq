@@ -1,6 +1,6 @@
 # UVZMQ
 
-[中文文档](README_CN.md) | [教程](TUTORIAL.md)
+[中文文档](README_CN.md)
 
 Minimal libuv integration for ZeroMQ.
 
@@ -13,6 +13,10 @@ UVZMQ provides **one thing only**: integrating ZMQ sockets with libuv event loop
 - ✅ **Batch processing** - Optimized for high-throughput scenarios
 - ✅ **Zero-copy support** - Compatible with ZMQ's zero-copy messaging
 - ✅ **C99 standard** - Works with GCC and Clang compilers
+
+## Documentation
+
+- 📖 [Tutorial](docs/en/tutorial.md) - Comprehensive guide with examples and best practices
 
 ## Quick Start
 
@@ -77,9 +81,8 @@ int main(void) {
 
 ## Learn More
 
-- 📖 [Tutorial](TUTORIAL.md) - Comprehensive guide with examples and best practices
-- 📚 [API Documentation](docs/index.html) - Detailed API reference (run `make docs`)
-- 🌐 [中文文档](README_CN.md) | [教程](TUTORIAL_CN.md) - Chinese documentation and tutorial
+- 📖 [Tutorial](docs/en/tutorial.md) - Comprehensive guide with examples and best practices
+- 📚 [API Documentation](docs/api/index.html) - Detailed API reference (run `make docs`)
 
 ## Building
 
@@ -249,15 +252,48 @@ See the `examples/` directory for complete examples:
 - `best_practices.c` - Complete example with signal handling
 - `test_*.c` - Various test cases
 
-💡 **Tip**: Check out the [Tutorial](TUTORIAL.md) for detailed usage guides and common patterns.
+💡 **Tip**: Check out the [Tutorial](docs/en/tutorial.md) for detailed usage guides and common patterns.
 
 ## Performance
 
+### Benchmark Results
+
 UVZMQ provides significant performance improvements over timer-based polling:
 
-- **Timer-based**: ~11.2ms per message
-- **Event-driven (UVZMQ)**: ~0.056ms per message
+- **Timer-based**: ~11.2ms per message (~89 msg/sec)
+- **Event-driven (UVZMQ)**: ~0.056ms per message (~17,857 msg/sec)
 - **Improvement**: ~200x faster
+
+### Throughput Data
+
+Measured with IPC transport (Release mode, `-O2` optimization):
+
+| Pattern              | Message Size | Throughput         | Latency   |
+| -------------------- | ------------ | ------------------ | --------- |
+| REQ/REP (round-trip) | 64B          | ~22,000 msg/sec    | ~0.045 ms |
+| REQ/REP (round-trip) | 1KB          | ~21,000 msg/sec    | ~0.047 ms |
+| PUSH/PULL (one-way)  | 64B          | ~5,800,000 msg/sec | -         |
+| PUSH/PULL (one-way)  | 1KB          | ~1,300,000 msg/sec | -         |
+| PUSH/PULL (one-way)  | 64KB         | ~67,000 msg/sec    | -         |
+
+### Transport Comparison
+
+IPC (Unix domain sockets) provides better performance than TCP for local communication:
+
+- **Small messages**: IPC ~22% faster than TCP
+- **Medium messages**: IPC ~25% faster than TCP
+- **Large messages**: IPC ~50% faster than TCP
+
+### Running Benchmarks
+
+```bash
+# Quick performance test
+make quick-benchmark
+
+# Full benchmark suite
+cmake --build build --target benchmark
+./build/benchmarks/benchmark
+```
 
 For large messages (>1KB), UVZMQ achieves performance comparable to native ZMQ with only 5-8% overhead due to libuv callback infrastructure.
 
