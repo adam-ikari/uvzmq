@@ -26,6 +26,8 @@ protected:
     }
 
     void TearDown() override {
+        // Run the loop to ensure all async cleanup completes
+        uv_run(&loop, UV_RUN_NOWAIT);
         // Cleanup ZMQ
         if (zmq_sock) {
             zmq_close(zmq_sock);

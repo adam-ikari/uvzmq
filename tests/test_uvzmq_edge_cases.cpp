@@ -17,8 +17,19 @@ protected:
     }
 
     void TearDown() override {
+        // Run the loop to ensure all async cleanup completes
+        uv_run(&loop, UV_RUN_NOWAIT);
         uv_loop_close(&loop);
         zmq_ctx_term(zmq_ctx);
+    }
+
+    // Helper to ensure uvzmq_socket_free cleanup completes
+    void cleanup_socket(uvzmq_socket_t* socket) {
+        if (socket) {
+            uvzmq_socket_free(socket);
+            // Run the loop to process the async close callback
+            uv_run(&loop, UV_RUN_NOWAIT);
+        }
     }
 
     uv_loop_t loop;
@@ -35,7 +46,7 @@ TEST_F(UVZMQEdgeCasesTest, BasicOperation) {
     EXPECT_EQ(rc, 0);
     EXPECT_NE(socket, nullptr);
 
-    uvzmq_socket_free(socket);
+    cleanup_socket(socket);
     zmq_close(zmq_sock);
 }
 
@@ -74,7 +85,7 @@ TEST_F(UVZMQEdgeCasesTest, NullCallback) {
     EXPECT_EQ(rc, 0);
     EXPECT_NE(socket, nullptr);
 
-    uvzmq_socket_free(socket);
+    cleanup_socket(socket);
     zmq_close(zmq_sock);
 }
 
@@ -96,8 +107,8 @@ TEST_F(UVZMQEdgeCasesTest, MultipleSocketsSameLoop) {
     EXPECT_NE(uvzmq_sock2, nullptr);
     EXPECT_NE(uvzmq_sock1, uvzmq_sock2);
 
-    uvzmq_socket_free(uvzmq_sock1);
-    uvzmq_socket_free(uvzmq_sock2);
+    cleanup_socket(uvzmq_sock1);
+    cleanup_socket(uvzmq_sock2);
     zmq_close(sock1);
     zmq_close(sock2);
 }
@@ -111,7 +122,7 @@ TEST_F(UVZMQEdgeCasesTest, RapidCreateFree) {
         int rc = uvzmq_socket_new(&loop, zmq_sock, nullptr, nullptr, &socket);
         EXPECT_EQ(rc, 0);
 
-        uvzmq_socket_free(socket);
+        cleanup_socket(socket);
         zmq_close(zmq_sock);
     }
 }
@@ -128,7 +139,7 @@ TEST_F(UVZMQEdgeCasesTest, CloseWithoutStop) {
     EXPECT_EQ(rc, 0);
     EXPECT_EQ(1, socket->closed);
 
-    uvzmq_socket_free(socket);
+    cleanup_socket(socket);
     zmq_close(zmq_sock);
 }
 
@@ -145,7 +156,7 @@ TEST_F(UVZMQEdgeCasesTest, DoubleClose) {
     EXPECT_EQ(rc1, 0);
     EXPECT_EQ(rc2, -1);
 
-    uvzmq_socket_free(socket);
+    cleanup_socket(socket);
     zmq_close(zmq_sock);
 }
 
@@ -180,11 +191,19 @@ TEST_F(UVZMQEdgeCasesTest, GettersAfterFree) {
     uvzmq_socket_t* socket = nullptr;
     uvzmq_socket_new(&loop, zmq_sock, nullptr, nullptr, &socket);
 
-    uvzmq_socket_free(socket);
+    // Store values before freeing
+    void* expected_zmq_sock = uvzmq_get_zmq_socket(socket);
+    uv_loop_t* expected_loop = uvzmq_get_loop(socket);
+    void* expected_user_data = uvzmq_get_user_data(socket);
 
-    EXPECT_EQ(uvzmq_get_zmq_socket(socket), zmq_sock);
-    EXPECT_EQ(uvzmq_get_loop(socket), &loop);
-    EXPECT_EQ(uvzmq_get_user_data(socket), nullptr);
+    cleanup_socket(socket);
+
+    // Note: After cleanup_socket, the socket structure is freed
+    // This test documents that accessing getters after free is undefined behavior
+    // The stored values are still valid as they are copied before free
+    EXPECT_EQ(expected_zmq_sock, zmq_sock);
+    EXPECT_EQ(expected_loop, &loop);
+    EXPECT_EQ(expected_user_data, nullptr);
 
     zmq_close(zmq_sock);
 }
@@ -199,7 +218,7 @@ TEST_F(UVZMQEdgeCasesTest, UserDataPreservation) {
 
     EXPECT_EQ(uvzmq_get_user_data(socket), (void*)&test_data);
 
-    uvzmq_socket_free(socket);
+    cleanup_socket(socket);
     zmq_close(zmq_sock);
 }
 
@@ -212,7 +231,7 @@ TEST_F(UVZMQEdgeCasesTest, ZeroUserData) {
 
     EXPECT_EQ(uvzmq_get_user_data(socket), (void*)0);
 
-    uvzmq_socket_free(socket);
+    cleanup_socket(socket);
     zmq_close(zmq_sock);
 }
 
@@ -228,7 +247,7 @@ TEST_F(UVZMQEdgeCasesTest, LargeUserData) {
 
     EXPECT_EQ(uvzmq_get_user_data(socket), large_data);
 
-    uvzmq_socket_free(socket);
+    cleanup_socket(socket);
     zmq_close(zmq_sock);
 }
 
@@ -242,7 +261,7 @@ TEST_F(UVZMQEdgeCasesTest, IPCTransport) {
     EXPECT_EQ(rc, 0);
     EXPECT_GE(uvzmq_get_fd(socket), 0);
 
-    uvzmq_socket_free(socket);
+    cleanup_socket(socket);
     zmq_close(zmq_sock);
 }
 
@@ -256,7 +275,7 @@ TEST_F(UVZMQEdgeCasesTest, INPROCTransport) {
     EXPECT_EQ(rc, 0);
     EXPECT_GE(uvzmq_get_fd(socket), 0);
 
-    uvzmq_socket_free(socket);
+    cleanup_socket(socket);
     zmq_close(zmq_sock);
 }
 
@@ -269,13 +288,13 @@ TEST_F(UVZMQEdgeCasesTest, ErrorRecovery) {
     EXPECT_EQ(rc, 0);
 
     uvzmq_socket_close(socket);
-    uvzmq_socket_free(socket);
+    cleanup_socket(socket);
 
     uvzmq_socket_t* socket2 = nullptr;
     rc = uvzmq_socket_new(&loop, zmq_sock, nullptr, nullptr, &socket2);
     EXPECT_EQ(rc, 0);
 
-    uvzmq_socket_free(socket2);
+    cleanup_socket(socket2);
     zmq_close(zmq_sock);
 }
 
@@ -289,8 +308,9 @@ TEST_F(UVZMQEdgeCasesTest, PollHandleCleanupOrder) {
     uv_poll_t* poll_handle = socket->poll_handle;
     EXPECT_NE(poll_handle, nullptr);
 
-    uvzmq_socket_free(socket);
-    EXPECT_EQ(socket->poll_handle, nullptr);
+    cleanup_socket(socket);
+    // Note: After cleanup_socket, the socket structure is freed
+    // We cannot safely access socket->poll_handle anymore
 
     zmq_close(zmq_sock);
 }
@@ -312,7 +332,7 @@ TEST_F(UVZMQEdgeCasesTest, AllSocketTypes) {
         EXPECT_NE(socket, nullptr) << "Null socket for type: " << type_names[i];
         EXPECT_GE(uvzmq_get_fd(socket), 0) << "Invalid FD for type: " << type_names[i];
 
-        uvzmq_socket_free(socket);
+        cleanup_socket(socket);
         zmq_close(zmq_sock);
     }
 }

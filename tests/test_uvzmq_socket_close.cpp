@@ -36,6 +36,8 @@ protected:
         if (zmq_ctx) {
             zmq_ctx_term(zmq_ctx);
         }
+        // Run the loop to ensure all async cleanup completes
+        uv_run(&loop, UV_RUN_NOWAIT);
         uv_loop_close(&loop);
     }
 

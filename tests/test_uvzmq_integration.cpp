@@ -52,6 +52,7 @@ protected:
         if (zmq_ctx) {
             zmq_ctx_term(zmq_ctx);
         }
+        uv_run(&loop, UV_RUN_NOWAIT);
         uv_loop_close(&loop);
     }
 
