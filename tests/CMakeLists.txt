@@ -9,7 +9,7 @@ target_link_libraries(test_uvzmq_socket_new
     gtest
     gtest_main
     uv_a
-    ${CMAKE_BINARY_DIR}/third_party/zmq/lib/libzmq.a
+    libzmq-static
     pthread
     stdc++
 )
@@ -22,7 +22,7 @@ target_link_libraries(test_uvzmq_socket_close
     gtest
     gtest_main
     uv_a
-    ${CMAKE_BINARY_DIR}/third_party/zmq/lib/libzmq.a
+    libzmq-static
     pthread
     stdc++
 )
@@ -35,7 +35,7 @@ target_link_libraries(test_uvzmq_socket_free
     gtest
     gtest_main
     uv_a
-    ${CMAKE_BINARY_DIR}/third_party/zmq/lib/libzmq.a
+    libzmq-static
     pthread
     stdc++
 )
@@ -48,7 +48,7 @@ target_link_libraries(test_uvzmq_getters
     gtest
     gtest_main
     uv_a
-    ${CMAKE_BINARY_DIR}/third_party/zmq/lib/libzmq.a
+    libzmq-static
     pthread
     stdc++
 )
@@ -61,7 +61,7 @@ target_link_libraries(test_uvzmq_error_handling
     gtest
     gtest_main
     uv_a
-    ${CMAKE_BINARY_DIR}/third_party/zmq/lib/libzmq.a
+    libzmq-static
     pthread
     stdc++
 )
@@ -74,7 +74,7 @@ target_link_libraries(test_uvzmq_integration
     gtest
     gtest_main
     uv_a
-    ${CMAKE_BINARY_DIR}/third_party/zmq/lib/libzmq.a
+    libzmq-static
     pthread
     stdc++
 )
@@ -87,7 +87,7 @@ target_link_libraries(test_uvzmq_edge_cases
     gtest
     gtest_main
     uv_a
-    ${CMAKE_BINARY_DIR}/third_party/zmq/lib/libzmq.a
+    libzmq-static
     pthread
     stdc++
 )
