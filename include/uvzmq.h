@@ -63,7 +63,7 @@
  *     // Create ZMQ context and socket
  *     void* zmq_ctx = zmq_ctx_new();
  *     void* zmq_sock = zmq_socket(zmq_ctx, ZMQ_REP);
- *     zmq_bind(zmq_sock, "tcp://*:5555");
+ *     zmq_bind(zmq_sock, "tcp://0.0.0.0:5555");
  *
  *     // Create libuv loop
  *     uv_loop_t loop;
@@ -417,10 +417,11 @@ static void uvzmq_poll_callback(uv_poll_t* handle, int status, int events) {
                 if (batch_count >= UVZMQ_MAX_BATCH_SIZE) {
                     break;
                 }
-            } else if (errno == EAGAIN) {
+            } else if (errno == EAGAIN || errno == EINTR) {
                 zmq_msg_close(&msg);
                 break;
             } else {
+                zmq_msg_close(&msg);
                 break;
             }
         }
