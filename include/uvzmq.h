@@ -207,16 +207,13 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <uv.h>
+
+// Include ZMQ headers before using zmq_msg_t in callback
 #include <zmq.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/**
- * @brief Forward declaration of zmq_msg_t
- */
-typedef struct zmq_msg_t zmq_msg_t;
 
 /**
  * @brief Forward declaration of uvzmq_socket_t
