@@ -5,18 +5,24 @@ set(CMAKE_C_STANDARD 99)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror -march=native -mtune=native")
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0")
-else()
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2")
-endif()
-
 option(UVZMQ_BUILD_TESTS "Build tests" ON)
 option(UVZMQ_BUILD_BENCHMARKS "Build benchmarks" ON)
 option(UVZMQ_BUILD_EXAMPLES "Build examples" ON)
 option(UVZMQ_ENABLE_COVERAGE "Enable code coverage" OFF)
 option(UVZMQ_ENABLE_ASAN "Enable AddressSanitizer" OFF)
 option(UVZMQ_ENABLE_TSAN "Enable ThreadSanitizer" OFF)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0")
+else()
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2")
+endif()
+
+# Remove -Werror for sanitizer builds to avoid treating warnings as errors
+if(UVZMQ_ENABLE_ASAN OR UVZMQ_ENABLE_TSAN)
+    string(REPLACE "-Werror" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+    string(REPLACE "-Werror" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+endif()
 
 # Code coverage
 if(UVZMQ_ENABLE_COVERAGE)
