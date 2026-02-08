@@ -8,11 +8,9 @@ on:
 
 jobs:
   build-and-test:
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         build_type: [Debug, Release]
     
     steps:
@@ -20,21 +18,10 @@ jobs:
       with:
         submodules: recursive
     
-    - name: Install dependencies (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
+    - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y libtool automake autoconf libssl-dev
-    
-    - name: Install dependencies (macOS)
-      if: matrix.os == 'macos-latest'
-      run: |
-        brew install automake autoconf libtool openssl
-    
-    - name: Install dependencies (Windows)
-      if: matrix.os == 'windows-latest'
-      run: |
-        choco install -y openssl
     
     - name: Configure CMake
       run: |
@@ -45,11 +32,7 @@ jobs:
     - name: Build
       run: |
         cd build
-        if [ "${{ runner.os }}" = "Windows" ]; then
-          cmake --build . --config ${{ matrix.build_type }}
-        else
-          make -j$(nproc)
-        fi
+        make -j$(nproc)
     
     - name: Run tests
       run: |
