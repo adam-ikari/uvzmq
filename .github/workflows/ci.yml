@@ -125,12 +125,6 @@ jobs:
         lcov --capture --directory . --output-file coverage.info --ignore-errors mismatch
         lcov --remove coverage.info '/usr/*' '*/third_party/*' '*/tests/*' --output-file coverage.info
         lcov --list coverage.info
-    
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        files: ./build_coverage/coverage.info
-        fail_ci_if_error: true
   
   code-formatting:
     runs-on: ubuntu-latest
