@@ -47,7 +47,7 @@ if(UVZMQ_BUILD_EXAMPLES)
     add_executable(test_zmq_perf test_zmq_perf.c)
     target_link_libraries(
         test_zmq_perf
-        ${CMAKE_BINARY_DIR}/third_party/zmq/lib/libzmq.a
+        libzmq-static
         uv_a
         pthread
         stdc++
