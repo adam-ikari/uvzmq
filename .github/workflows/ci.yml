@@ -149,7 +149,7 @@ jobs:
     - name: Run quick benchmark
       run: |
         cd build_perf
-        ./bin/quick_benchmark
+        ./benchmarks/quick_benchmark
   
   code-formatting:
     runs-on: ubuntu-latest
