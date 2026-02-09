@@ -5,12 +5,14 @@
 ## 开发环境
 
 ### 系统要求
+
 - Linux 系统（Ubuntu 20.04+ 推荐）
 - GCC 7+ 或 Clang 6+
 - CMake 3.10+
 - Make
 
 ### 依赖项
+
 ```bash
 # 获取子模块
 git submodule update --init --recursive
@@ -19,12 +21,14 @@ git submodule update --init --recursive
 ## 代码规范
 
 ### C 代码规范
+
 - **语言标准**: C99
 - **缩进**: 4 空格
 - **大括号风格**: K&R 风格
 - **行宽**: 120 字符（推荐）
 
 ### 代码格式化
+
 项目使用 clang-format 进行代码格式化，请确保你的代码符合规范：
 
 ```bash
@@ -36,17 +40,20 @@ make format
 ```
 
 ### 编译警告
+
 - 所有代码必须通过 `-Wall -Wextra -Werror` 编译
 - 不允许任何编译警告
 
 ## 测试要求
 
 ### 单元测试
+
 - 所有新功能必须包含对应的单元测试
 - 测试覆盖率要求：新增代码覆盖率 ≥ 80%
 - 使用 Google Test 框架
 
 ### 测试文件位置
+
 ```
 tests/
 ├── test_uvzmq_socket_new.cpp
@@ -59,6 +66,7 @@ tests/
 ```
 
 ### 运行测试
+
 ```bash
 # 编译测试
 mkdir build && cd build
@@ -82,6 +90,7 @@ ctest --output-on-failure
 ```
 
 ### 内存安全要求
+
 - 所有测试必须通过 ASAN（AddressSanitizer）检查
 - 所有测试必须通过 TSAN（ThreadSanitizer）检查
 - 不允许内存泄漏
@@ -89,6 +98,7 @@ ctest --output-on-failure
 ## 文档要求
 
 ### Doxygen 注释
+
 所有公共 API 必须包含完整的 Doxygen 注释：
 
 ```c
@@ -114,6 +124,7 @@ int function_name(int param1, void* param2);
 ```
 
 ### 文档更新
+
 - 修改公共 API 时，必须更新 README.md 和 README_CN.md
 - 添加新功能时，必须添加对应的示例程序
 - 示例程序位置：`examples/`
@@ -121,6 +132,7 @@ int function_name(int param1, void* param2);
 ## 提交规范
 
 ### 提交信息格式
+
 ```
 <type>: <subject>
 
@@ -128,6 +140,7 @@ int function_name(int param1, void* param2);
 ```
 
 ### 类型（type）
+
 - `feat`: 新功能
 - `fix`: 修复 bug
 - `docs`: 文档更新
@@ -137,6 +150,7 @@ int function_name(int param1, void* param2);
 - `chore`: 构建工具或辅助工具
 
 ### 示例
+
 ```
 feat: 添加批量消息处理支持
 
@@ -160,6 +174,7 @@ Closes #123
 ## CI/CD 检查
 
 所有 PR 必须通过以下 CI 检查：
+
 - ✅ 代码格式检查（clang-format）
 - ✅ 单元测试（Debug/Release）
 - ✅ ASAN 内存安全检查

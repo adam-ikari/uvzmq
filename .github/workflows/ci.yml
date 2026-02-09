@@ -143,7 +143,7 @@ jobs:
       run: |
         mkdir build_perf
         cd build_perf
-        cmake -DCMAKE_BUILD_TYPE=Release ..
+        cmake -DCMAKE_BUILD_TYPE=Release -DUVZMQ_BUILD_BENCHMARKS=ON ..
         make -j$(nproc)
     
     - name: Run quick benchmark
