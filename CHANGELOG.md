@@ -3,9 +3,9 @@
 本文档记录 UVZMQ 项目的所有重要变更。
 
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
-版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
+使用日期标记变更（YYYY-MM-DD）。
 
-## [Unreleased]
+## 2026-02-09
 
 ### Added
 
@@ -36,7 +36,7 @@
 - 使用 uv_poll 替代定时器轮询（性能提升 200 倍）
 - 零拷贝消息支持
 
-## [0.1.0] - 2026-01-07
+## 2026-01-07
 
 ### Added
 
