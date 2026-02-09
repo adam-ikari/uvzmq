@@ -126,6 +126,31 @@ jobs:
         lcov --remove coverage.info '/usr/*' '*/third_party/*' '*/tests/*' --output-file coverage.info
         lcov --list coverage.info
   
+  performance:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libtool automake autoconf libssl-dev
+    
+    - name: Build
+      run: |
+        mkdir build_perf
+        cd build_perf
+        cmake -DCMAKE_BUILD_TYPE=Release ..
+        make -j$(nproc)
+    
+    - name: Run quick benchmark
+      run: |
+        cd build_perf
+        ./bin/quick_benchmark
+  
   code-formatting:
     runs-on: ubuntu-latest
     
