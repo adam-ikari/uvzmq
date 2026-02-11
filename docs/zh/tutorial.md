@@ -7,9 +7,11 @@
 1. [简介](#简介)
 2. [安装](#安装)
 3. [基本用法](#基本用法)
-4. [常见模式](#常见模式)
-5. [最佳实践](#最佳实践)
-6. [故障排查](#故障排查)
+4. [libuv 基础](#libuv-基础)
+5. [ZeroMQ 基础](#zeromq-基础)
+6. [常见模式](#常见模式)
+7. [最佳实践](#最佳实践)
+8. [故障排查](#故障排查)
 
 ---
 
@@ -172,6 +174,334 @@ int main(void) {
     zmq_ctx_term(context);
 
     return 0;
+}
+```
+
+---
+
+## libuv 基础
+
+### 什么是 libuv？
+
+libuv 是一个跨平台的异步 I/O 库，最初为 Node.js 开发，提供以下核心功能：
+
+- **事件循环**: 管理异步操作和回调
+- **异步 I/O**: 文件、网络、DNS 查询等
+- **线程池**: CPU 密集型任务的并行处理
+- **定时器**: 延迟和周期性任务
+- **信号处理**: 操作系统信号的处理
+
+### 事件循环核心概念
+
+#### 事件循环模式
+
+libuv 提供 3 种运行模式：
+
+**UV_RUN_DEFAULT**
+```c
+uv_run(&loop, UV_RUN_DEFAULT);
+```
+- **行为**: 持续运行直到没有活动句柄
+- **特点**: 最简单的模式，自动管理生命周期
+- **用途**: 推荐用于长期运行的服务器
+- **优势**: CPU 利用率低，自动退出
+
+**UV_RUN_ONCE**
+```c
+while (keep_running) {
+    uv_run(&loop, UV_RUN_ONCE);
+}
+```
+- **行为**: 处理一次事件后返回
+- **特点**: 灵活控制循环执行
+- **用途**: 需要与其他逻辑混合使用
+- **优势**: 可以添加自定义逻辑，优雅关闭
+
+**UV_RUN_NOWAIT**
+```c
+while (keep_running) {
+    uv_run(&loop, UV_RUN_NOWAIT);
+    usleep(1000);
+}
+```
+- **行为**: 立即返回，不等待任何事件
+- **特点**: 非阻塞，轮询式处理
+- **用途**: 测试、调试或特殊场景
+- **注意**: 消耗 CPU 资源
+
+#### 选择正确的模式
+
+```c
+// 场景 1: 长期运行的服务器（推荐）
+uv_run(&loop, UV_RUN_DEFAULT);
+
+// 场景 2: 需要优雅关闭的应用
+sig_atomic_t stop_requested = 0;
+void signal_handler(int sig) {
+    stop_requested = 1;
+}
+while (!stop_requested) {
+    uv_run(&loop, UV_RUN_ONCE);
+}
+// 清理资源...
+
+// 场景 3: 测试或调试
+for (int i = 0; i < 10; i++) {
+    uv_run(&loop, UV_RUN_ONCE);
+}
+```
+
+### 关键 API
+
+#### 初始化和清理
+
+```c
+uv_loop_t loop;
+uv_loop_init(&loop);   // 初始化事件循环
+// ... 使用循环 ...
+uv_loop_close(&loop); // 清理事件循环
+```
+
+#### 定时器
+
+```c
+uv_timer_t timer_handle;
+
+void timer_callback(uv_timer_t* handle) {
+    printf("定时器触发\n");
+}
+
+int main(void) {
+    uv_timer_init(&loop, &timer_handle);
+    uv_timer_start(&timer_handle, timer_callback, 1000, 1000); // 1秒后触发，每1秒重复
+    
+    uv_run(&loop, UV_RUN_DEFAULT);
+    
+    uv_timer_stop(&timer_handle);
+    uv_close((uv_handle_t*)&timer_handle, NULL);
+    return 0;
+}
+```
+
+#### 异步信号
+
+```c
+uv_async_t async_handle;
+sig_atomic_t stop_requested = 0;
+
+void async_callback(uv_async_t* handle) {
+    stop_requested = 1;
+}
+
+void signal_handler(int sig) {
+    uv_async_send(&async_handle);
+}
+
+int main(void) {
+    uv_async_init(&loop, &async_handle, async_callback);
+    signal(SIGINT, signal_handler);
+    
+    while (!stop_requested) {
+        uv_run(&loop, UV_RUN_ONCE);
+    }
+    
+    uv_close((uv_handle_t*)&async_handle, NULL);
+    return 0;
+}
+```
+
+### libuv 最佳实践
+
+1. **始终检查返回值**
+```c
+int rc = uv_timer_init(&loop, &timer_handle);
+if (rc != 0) {
+    fprintf(stderr, "uv_timer_init 失败: %s\n", uv_strerror(rc));
+    return 1;
+}
+```
+
+2. **正确清理句柄**
+```c
+// 先停止
+uv_timer_stop(&timer_handle);
+// 再关闭
+uv_close((uv_handle_t*)&timer_handle, close_callback);
+// 等待关闭完成
+while (!timer_closed) {
+    uv_run(&loop, UV_RUN_NOWAIT);
+}
+```
+
+3. **避免阻塞操作**
+```c
+// ❌ 错误：阻塞事件循环
+void on_recv(...) {
+    sleep(1);  // 阻塞 1 秒
+}
+
+// ✅ 正确：使用定时器延迟
+void delayed_callback(uv_timer_t* handle) {
+    // 延迟处理
+}
+```
+
+---
+
+## ZeroMQ 基础
+
+### 什么是 ZeroMQ？
+
+ZeroMQ (ØMQ) 是一个高性能的异步消息传递库，提供以下特性：
+
+- **轻量级**: 不需要中间件，点对点通信
+- **多种模式**: REQ/REP, PUB/SUB, PUSH/PULL 等
+- **高性能**: 零拷贝，批量处理
+- **跨平台**: 支持多种传输协议
+
+### 核心 Socket 类型
+
+#### REQ/REP (请求-回复)
+
+```c
+// 服务器
+void* server = zmq_socket(ctx, ZMQ_REP);
+zmq_bind(server, "tcp://*:5555");
+
+// 客户端
+void* client = zmq_socket(ctx, ZMQ_REQ);
+zmq_connect(client, "tcp://localhost:5555");
+
+// 使用
+zmq_send(client, "请求", 5, 0);
+zmq_recv(client, buffer, 256, 0);
+```
+
+**特点**:
+- 严格交替：请求 → 回复 → 请求 → 回复
+- 阻塞模式：send 后必须 recv，recv 前必须 send
+
+#### PUB/SUB (发布-订阅)
+
+```c
+// 发布者
+void* pub = zmq_socket(ctx, ZMQ_PUB);
+zmq_bind(pub, "tcp://*:5556");
+
+// 订阅者
+void* sub = zmq_socket(ctx, ZMQ_SUB);
+zmq_connect(sub, "tcp://localhost:5556");
+zmq_setsockopt(sub, ZMQ_SUBSCRIBE, "", 0);  // 订阅所有消息
+
+// 使用
+zmq_send(pub, "消息", 5, 0);
+zmq_recv(sub, buffer, 256, 0);
+```
+
+**特点**:
+- 一对多：一个发布者，多个订阅者
+- 发布者不等待确认
+- 订阅者可以过滤消息
+
+#### PUSH/PULL (管道)
+
+```c
+// 推送者
+void* push = zmq_socket(ctx, ZMQ_PUSH);
+zmq_bind(push, "tcp://*:5557");
+
+// 拉取者
+void* pull = zmq_socket(ctx, ZMQ_PULL);
+zmq_connect(pull, "tcp://localhost:5557");
+
+// 使用
+zmq_send(push, "任务", 5, 0);
+zmq_recv(pull, buffer, 256, 0);
+```
+
+**特点**:
+- 任务分发：多个消费者，负载均衡
+- 高吞吐量：适合批量数据传输
+
+### 关键 API
+
+#### 创建和销毁
+
+```c
+// 创建上下文（整个程序只需一个）
+void* ctx = zmq_ctx_new();
+
+// 创建 socket
+void* socket = zmq_socket(ctx, ZMQ_REP);
+
+// 设置选项
+int hwm = 10000;
+zmq_setsockopt(socket, ZMQ_SNDHWM, &hwm, sizeof(hwm));
+
+// 绑定/连接
+zmq_bind(socket, "tcp://*:5555");
+zmq_connect(socket, "tcp://localhost:5555");
+
+// 发送/接收
+zmq_send(socket, "消息", 5, 0);
+zmq_recv(socket, buffer, 256, 0);
+
+// 清理
+zmq_close(socket);
+zmq_ctx_term(ctx);
+```
+
+#### Socket 选项
+
+**高水位标记 (High Water Mark)**
+```c
+int hwm = 10000;
+zmq_setsockopt(socket, ZMQ_SNDHWM, &hwm, sizeof(hwm));  // 发送队列
+zmq_setsockopt(socket, ZMQ_RCVHWM, &hwm, sizeof(hwm));  // 接收队列
+```
+
+**超时设置**
+```c
+int timeout = 1000;  // 毫秒
+zmq_setsockopt(socket, ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
+zmq_setsockopt(socket, ZMQ_SNDTIMEO, &timeout, sizeof(timeout));
+```
+
+**批量大小**
+```c
+int batch_size = 8192;
+zmq_setsockopt(socket, ZMQ_IN_BATCH_SIZE, &batch_size, sizeof(batch_size));
+zmq_setsockopt(socket, ZMQ_OUT_BATCH_SIZE, &batch_size, sizeof(batch_size));
+```
+
+### ZeroMQ 最佳实践
+
+1. **使用零拷贝消息**
+```c
+zmq_msg_t msg;
+zmq_msg_init_data(&msg, data, size, NULL, NULL);
+zmq_msg_send(&msg, socket, 0);
+zmq_msg_close(&msg);
+```
+
+2. **正确处理错误**
+```c
+if (zmq_send(socket, data, size, 0) == -1) {
+    fprintf(stderr, "发送失败: %s\n", zmq_strerror(zmq_errno()));
+}
+```
+
+3. **设置合理的超时**
+```c
+int timeout = 5000;  // 5 秒
+zmq_setsockopt(socket, ZMQ_RCVTIMEO, &timeout, sizeof(timeout));
+```
+
+4. **使用非阻塞模式**
+```c
+int rc = zmq_recv(socket, buffer, size, ZMQ_DONTWAIT);
+if (rc == -1 && zmq_errno() == EAGAIN) {
+    // 没有可用消息
 }
 ```
 
