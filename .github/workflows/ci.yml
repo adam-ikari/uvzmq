@@ -149,7 +149,32 @@ jobs:
     - name: Run quick benchmark
       run: |
         cd build_perf
-        ./benchmarks/quick_benchmark
+        ./benchmarks/quick_benchmark > benchmark_results.txt 2>&1
+        cat benchmark_results.txt
+    
+    - name: Check performance regression
+      run: |
+        cd build_perf
+        # 提取关键性能指标（示例：REQ/REP 往返延迟）
+        latency=$(grep "REQ/REP.*latency" benchmark_results.txt | grep -oP '\d+\.\d+ms' | grep -oP '\d+\.\d+')
+        if [ -z "$latency" ]; then
+          echo "Warning: Could not extract latency metric"
+          exit 0
+        fi
+        echo "Current REQ/REP latency: ${latency}ms"
+        # 设置性能退化阈值（例如：如果延迟超过 0.1ms 则报警）
+        threshold=0.1
+        if (( $(echo "$latency > $threshold" | bc -l) )); then
+          echo "Warning: Performance regression detected! Latency ${latency}ms exceeds threshold ${threshold}ms"
+          # 注意：这里只发出警告，不阻止构建，因为性能波动可能由环境因素引起
+        fi
+    
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v3
+      with:
+        name: benchmark-results
+        path: build_perf/benchmark_results.txt
+        retention-days: 30
   
   code-formatting:
     runs-on: ubuntu-latest
