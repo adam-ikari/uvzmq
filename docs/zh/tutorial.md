@@ -20,7 +20,6 @@ UVZMQ 是一个极简的库，用于桥接 ZeroMQ 和 libuv，实现基于事件
 ### 核心概念
 
 - **事件驱动**: 使用 libuv 的 `uv_poll` 实现高效 I/O
-- **批量处理**: 每个事件最多处理 1000 条消息
 - **零拷贝**: 兼容 ZMQ 的零拷贝消息传递
 - **单文件库**: 单头文件集成，无构建依赖
 
@@ -452,15 +451,6 @@ for (int i = 0; i < 10; i++) {
 }
 ```
 
-### 2. 使用批量处理
-
-UVZMQ 自动批量处理最多 1000 条消息/事件。对于超高吞吐量，可以调整常量：
-
-```c
-#define UVZMQ_MAX_BATCH_SIZE 2000  // 增加批量大小
-#define UVZMQ_BATCH_CHECK_INTERVAL 100  // 减少检查频率
-```
-
 ### 2. 优化 Socket 选项
 
 ```c
@@ -468,6 +458,11 @@ UVZMQ 自动批量处理最多 1000 条消息/事件。对于超高吞吐量，�
 int hwm = 10000;
 zmq_setsockopt(sock, ZMQ_SNDHWM, &hwm, sizeof(hwm));
 zmq_setsockopt(sock, ZMQ_RCVHWM, &hwm, sizeof(hwm));
+
+// 设置 ZMQ 批量大小
+int batch_size = 8192;
+zmq_setsockopt(sock, ZMQ_IN_BATCH_SIZE, &batch_size, sizeof(batch_size));
+zmq_setsockopt(sock, ZMQ_OUT_BATCH_SIZE, &batch_size, sizeof(batch_size));
 ```
 
 ### 3. 使用零拷贝

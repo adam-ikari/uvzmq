@@ -112,9 +112,11 @@
  * @endcode
  *
  * @section batch Batch Processing Configuration
- * UVZMQ uses batch processing for performance:
- * - @ref UVZMQ_MAX_BATCH_SIZE - Maximum messages per batch (default: 1000)
- * - @ref UVZMQ_BATCH_CHECK_INTERVAL - Check interval (default: 50)
+ * Users should use ZMQ API directly for batch size control:
+ * @code
+ * int batch_size = 8192;
+ * zmq_setsockopt(zmq_sock, ZMQ_IN_BATCH_SIZE, &batch_size, sizeof(batch_size));
+ * @endcode
  *
  * @section threads Thread Safety
  * UVZMQ is **NOT thread-safe**. Each `uvzmq_socket_t` must be used by a
@@ -171,37 +173,7 @@
 #ifndef UVZMQ_H
 #define UVZMQ_H
 
-/* Batch processing configuration */
-/**
- * @def UVZMQ_MAX_BATCH_SIZE
- * @brief Maximum number of messages to process in a single batch
- *
- * When the socket becomes readable, uvzmq processes messages in batches
- * to improve performance. This constant limits the maximum number of
- * messages processed before yielding control back to the event loop.
- *
- * @note A higher value improves throughput but may increase latency for
- *       other operations. The default value of 1000 has been tested to
- *       provide good performance for most use cases.
- */
-#define UVZMQ_MAX_BATCH_SIZE 1000
 
-/**
- * @def UVZMQ_BATCH_CHECK_INTERVAL
- * @brief Interval for checking ZMQ socket events during batch processing
- *
- * During batch processing, uvzmq checks whether the ZMQ socket still has
- * data available every N messages (defined by this constant). This balances
- * performance (reducing system calls) with responsiveness (avoiding unnecessary
- * iterations when no data is available).
- *
- * @note The default value of 50 provides a good balance:
- *       - Smaller values: More responsive but higher system call overhead
- *       - Larger values: Better throughput but may process empty iterations
- *
- * @see UVZMQ_MAX_BATCH_SIZE
- */
-#define UVZMQ_BATCH_CHECK_INTERVAL 50
 
 #include <stddef.h>
 #include <stdint.h>
@@ -372,7 +344,7 @@ int uvzmq_socket_free(uvzmq_socket_t* socket);
  * @brief Internal libuv poll callback
  *
  * This function is called by libuv when the ZMQ socket becomes readable.
- * It batches message reception for performance (up to 1000 messages).
+ * It processes all available messages until zmq_msg_recv returns EAGAIN.
  *
  * @param handle libuv poll handle
  * @param status libuv status (unused)
@@ -387,8 +359,6 @@ static void uvzmq_poll_callback(uv_poll_t* handle, int status, int events) {
     }
 
     if (events & UV_READABLE && socket->on_recv) {
-        int batch_count = 0;
-
         while (1) {
             zmq_msg_t msg;
             zmq_msg_init(&msg);
@@ -396,24 +366,6 @@ static void uvzmq_poll_callback(uv_poll_t* handle, int status, int events) {
             int recv_rc = zmq_msg_recv(&msg, socket->zmq_sock, ZMQ_DONTWAIT);
             if (recv_rc >= 0) {
                 socket->on_recv(socket, &msg, socket->user_data);
-                batch_count++;
-
-                if (batch_count % UVZMQ_BATCH_CHECK_INTERVAL == 0) {
-                    int zmq_events;
-                    size_t events_size = sizeof(zmq_events);
-                    if (zmq_getsockopt(socket->zmq_sock,
-                                       ZMQ_EVENTS,
-                                       &zmq_events,
-                                       &events_size) == 0) {
-                        if (!(zmq_events & ZMQ_POLLIN)) {
-                            break;
-                        }
-                    }
-                }
-
-                if (batch_count >= UVZMQ_MAX_BATCH_SIZE) {
-                    break;
-                }
             } else if (errno == EAGAIN || errno == EINTR) {
                 zmq_msg_close(&msg);
                 break;

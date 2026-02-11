@@ -10,7 +10,6 @@ UVZMQ provides **one thing only**: integrating ZMQ sockets with libuv event loop
 
 - ✅ **Minimal API** - Only essential functions needed
 - ✅ **Event-driven** - Uses libuv's `uv_poll` for efficient I/O
-- ✅ **Batch processing** - Optimized for high-throughput scenarios
 - ✅ **Zero-copy support** - Compatible with ZMQ's zero-copy messaging
 - ✅ **C99 standard** - Works with GCC and Clang compilers
 

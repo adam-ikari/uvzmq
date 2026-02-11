@@ -20,7 +20,6 @@ UVZMQ is a minimal library that bridges ZeroMQ and libuv, enabling event-driven 
 ### Key Concepts
 
 - **Event-Driven**: Uses libuv's `uv_poll` for efficient I/O
-- **Batch Processing**: Processes up to 1000 messages per event
 - **Zero-Copy**: Compatible with ZMQ's zero-copy messaging
 - **Header-Only**: Single file integration, no build dependencies
 
@@ -452,15 +451,6 @@ for (int i = 0; i < 10; i++) {
 }
 ```
 
-### 2. Use Batch Processing
-
-UVZMQ automatically batches up to 1000 messages per event. For very high throughput, you can adjust the constants:
-
-```c
-#define UVZMQ_MAX_BATCH_SIZE 2000  // Increase batch size
-#define UVZMQ_BATCH_CHECK_INTERVAL 100  // Less frequent checks
-```
-
 ### 2. Optimize Socket Options
 
 ```c
@@ -468,6 +458,11 @@ UVZMQ automatically batches up to 1000 messages per event. For very high through
 int hwm = 10000;
 zmq_setsockopt(sock, ZMQ_SNDHWM, &hwm, sizeof(hwm));
 zmq_setsockopt(sock, ZMQ_RCVHWM, &hwm, sizeof(hwm));
+
+// Set batch size for ZMQ
+int batch_size = 8192;
+zmq_setsockopt(sock, ZMQ_IN_BATCH_SIZE, &batch_size, sizeof(batch_size));
+zmq_setsockopt(sock, ZMQ_OUT_BATCH_SIZE, &batch_size, sizeof(batch_size));
 ```
 
 ### 3. Use Zero-Copy
