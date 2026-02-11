@@ -8,8 +8,8 @@
 
 #include "../include/uvzmq.h"
 
-static volatile sig_atomic_t stop_requested = 0;
-static volatile sig_atomic_t async_closed = 0;
+static sig_atomic_t stop_requested = 0;
+static sig_atomic_t async_closed = 0;
 static uv_async_t async_handle;
 
 static void async_callback(uv_async_t* handle) {
