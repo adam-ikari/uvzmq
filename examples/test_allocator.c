@@ -1,9 +1,8 @@
-#define UVZMQ_IMPLEMENTATION
 #include <stdio.h>
 #include <stdlib.h>
 #include <zmq.h>
 
-#include "../include/uvzmq.h"
+#include "uvzmq.h"
 
 /* Test that mimalloc is being used for ZMQ allocations */
 extern void* mi_malloc(size_t size);

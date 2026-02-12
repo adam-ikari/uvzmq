@@ -1,10 +1,9 @@
-#define UVZMQ_IMPLEMENTATION
 #include <signal.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <zmq.h>
 
-#include "../include/uvzmq.h"
+#include "uvzmq.h"
 
 static volatile int keep_running = 1;
 

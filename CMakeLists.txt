@@ -8,6 +8,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Werror -march=native -mtune=n
 option(UVZMQ_BUILD_TESTS "Build tests" ON)
 option(UVZMQ_BUILD_BENCHMARKS "Build benchmarks" ON)
 option(UVZMQ_BUILD_EXAMPLES "Build examples" ON)
+option(UVZMQ_ENABLE_LIBUV_POLLER "Enable libuv-based poller in libzmq" OFF)
 option(UVZMQ_ENABLE_COVERAGE "Enable code coverage" OFF)
 option(UVZMQ_ENABLE_ASAN "Enable AddressSanitizer" OFF)
 option(UVZMQ_ENABLE_TSAN "Enable ThreadSanitizer" OFF)
@@ -76,6 +77,20 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/third_party/libuv/include
     ${CMAKE_SOURCE_DIR}/third_party/zmq/include
 )
+
+# UVZMQ library
+add_library(uvzmq STATIC
+    src/uvzmq.c
+)
+target_link_libraries(uvzmq
+    uv_a
+    libzmq-static
+)
+
+if(UVZMQ_ENABLE_LIBUV_POLLER)
+    target_compile_definitions(uvzmq PRIVATE UVZMQ_ENABLE_LIBUV_POLLER=1)
+    message(STATUS "UVZMQ: libuv-based poller enabled")
+endif()
 
 if(UVZMQ_BUILD_TESTS)
     enable_testing()

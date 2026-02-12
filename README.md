@@ -2,32 +2,53 @@
 
 [中文文档](README_CN.md)
 
-Minimal libuv integration for ZeroMQ.
+Libuv-based ZeroMQ integration with zero internal thread creation.
 
 UVZMQ provides **one thing only**: integrating ZMQ sockets with libuv event loop using `uv_poll`. All other ZMQ operations (send, recv, poll, setsockopt, etc.) should be used directly from the ZMQ API.
 
 ## Features
 
+- ✅ **Zero Thread Creation** - uvzmq does NOT create any threads, reuses libuv loop thread
 - ✅ **Minimal API** - Only essential functions needed
-- ✅ **Event-driven** - Uses libuv's `uv_poll` for efficient I/O
-- ✅ **Zero-copy support** - Compatible with ZMQ's zero-copy messaging
+- ✅ **Event-driven** - Uses libuv's event loop for all I/O
+- ✅ **Direct ZMQ Access** - Full access to ZMQ APIs without abstraction
 - ✅ **C99 standard** - Works with GCC and Clang compilers
+
+## Design Philosophy
+
+UVZMQ follows a different design philosophy from traditional ZeroMQ:
+
+### Traditional ZeroMQ
+- Creates I/O threads for socket operations
+- User Thread → ZMQ API → ZMQ I/O Thread (epoll/kqueue) → Network
+- Multiple threads, context switching overhead
+
+### uvzmq + libzmq Integration
+- Zero thread creation - reuses libuv event loop thread
+- User Thread → ZMQ API → libuv Event Loop (uv_poll) → Network
+- Single event loop, reduced overhead
+
+### Key Principles
+
+1. **Zero Thread Creation**: uvzmq completely avoids thread creation
+2. **Libuv Integration**: ZMQ pollers use libuv event loop instead of own threads
+3. **Minimal API**: Only 3 core functions + 4 getter functions
+4. **Transparent**: Structure is public, no hidden magic
+5. **Zero-abstraction**: Direct ZMQ API access
 
 ## Documentation
 
 - 📖 [Tutorial](docs/en/tutorial.md) - Comprehensive guide with examples and best practices
+- 📚 [API Documentation](docs/api/index.html) - Detailed API reference (run `make docs`)
 
 ## Quick Start
 
-UVZMQ is a **header-only library**. Include the header file in one of your source files with the implementation macro:
+UVZMQ requires building with libuv-based poller enabled:
 
-```c
-// In ONE of your source files
-#define UVZMQ_IMPLEMENTATION
-#include "uvzmq.h"
-
-// In other source files
-#include "uvzmq.h"
+```bash
+mkdir build && cd build
+cmake -DUVZMQ_ENABLE_LIBUV_POLLER=ON ..
+make
 ```
 
 Then use it in your code:
@@ -47,8 +68,11 @@ void on_recv(uvzmq_socket_t *s, zmq_msg_t *msg, void *data) {
 }
 
 int main(void) {
-    // Create ZMQ context and socket
+    // Create ZMQ context with ZERO I/O threads!
     void *zmq_ctx = zmq_ctx_new();
+    zmq_ctx_set(zmq_ctx, ZMQ_IO_THREADS, 0);  // Critical: 0 I/O threads
+
+    // Create ZMQ socket
     void *zmq_sock = zmq_socket(zmq_ctx, ZMQ_REP);
     zmq_bind(zmq_sock, "tcp://*:5555");
 
@@ -61,10 +85,7 @@ int main(void) {
     uvzmq_socket_new(&loop, zmq_sock, on_recv, NULL, &uvzmq_sock);
 
     // Run event loop
-    int keep_running = 1;
-    while (keep_running) {
-        uv_run(&loop, UV_RUN_ONCE);
-    }
+    uv_run(&loop, UV_RUN_DEFAULT);
 
     // Cleanup
     uvzmq_socket_free(uvzmq_sock);
@@ -76,7 +97,14 @@ int main(void) {
 }
 ```
 
-**Important:** Only define `UVZMQ_IMPLEMENTATION` in **ONE** source file. All other files should just include `"uvzmq.h"`.
+## Critical Configuration
+
+When using uvzmq, you MUST:
+
+1. **Set `ZMQ_IO_THREADS=0`** on the ZMQ context
+2. **Build with `-DUVZMQ_ENABLE_LIBUV_POLLER=ON`**
+
+Failure to do so will result in ZMQ still creating I/O threads.
 
 ## Learn More
 
@@ -97,18 +125,24 @@ int main(void) {
 ```bash
 git submodule update --init --recursive
 mkdir build && cd build
-cmake ..
+cmake -DUVZMQ_ENABLE_LIBUV_POLLER=ON ..
 make
 ```
 
 ### Build Options
 
 ```bash
+# Enable libuv-based poller (REQUIRED for uvzmq)
+cmake -DUVZMQ_ENABLE_LIBUV_POLLER=ON ..
+
 # Disable examples
 cmake -DUVZMQ_BUILD_EXAMPLES=OFF ..
 
 # Disable benchmarks
 cmake -DUVZMQ_BUILD_BENCHMARKS=OFF ..
+
+# Disable tests
+cmake -DUVZMQ_BUILD_TESTS=OFF ..
 ```
 
 ## API Reference
@@ -226,7 +260,8 @@ UVZMQ is **NOT thread-safe**. Each `uvzmq_socket_t` must be used by a single thr
 For multi-threaded applications:
 
 - Create separate `uvzmq_socket_t` instances for each thread
-- Use separate ZMQ contexts or configure `ZMQ_IO_THREADS` appropriately
+- Use separate libuv event loops for each thread
+- Use separate ZMQ contexts (with ZMQ_IO_THREADS=0)
 - Do NOT share `uvzmq_socket_t` or `zmq_sock` across threads
 
 ## Callback Requirements
@@ -300,10 +335,12 @@ For large messages (>1KB), UVZMQ achieves performance comparable to native ZMQ w
 
 UVZMQ follows these principles:
 
-1. **Minimal** - Only provides libuv event loop integration
-2. **Direct** - Users interact with ZMQ APIs directly
-3. **Transparent** - No hidden abstractions or magic
-4. **Efficient** - Zero unnecessary overhead
+1. **Zero Thread Creation** - uvzmq does NOT create any threads
+2. **Libuv Integration** - ZMQ pollers use libuv event loop instead of own threads
+3. **Minimal** - Only provides libuv event loop integration
+4. **Direct** - Users interact with ZMQ APIs directly
+5. **Transparent** - No hidden abstractions or magic
+6. **Efficient** - Zero unnecessary overhead, single event loop
 
 ## License
 
@@ -314,6 +351,7 @@ MIT License
 Contributions are welcome! Please ensure:
 
 - Code follows C99 standard
-- No C11 features (for wider compatibility)
 - All functions have proper error checking
 - Examples demonstrate best practices
+- Set `ZMQ_IO_THREADS=0` when using uvzmq
+- Build with `-DUVZMQ_ENABLE_LIBUV_POLLER=ON`

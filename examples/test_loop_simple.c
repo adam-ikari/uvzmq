@@ -1,10 +1,9 @@
-#define UVZMQ_IMPLEMENTATION
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <zmq.h>
 
-#include "../include/uvzmq.h"
+#include "uvzmq.h"
 
 static int g_received = 0;
 

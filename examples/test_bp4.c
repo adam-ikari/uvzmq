@@ -1,8 +1,7 @@
-#define UVZMQ_IMPLEMENTATION
 #include <stdio.h>
 #include <zmq.h>
 
-#include "../include/uvzmq.h"
+#include "uvzmq.h"
 
 int main(void) {
     printf("Test: Start\n");

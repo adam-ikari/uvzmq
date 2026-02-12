@@ -1,4 +1,3 @@
-#define UVZMQ_IMPLEMENTATION
 #include <pthread.h>
 #include <signal.h>
 #include <stdio.h>
@@ -7,7 +6,7 @@
 #include <unistd.h>
 #include <zmq.h>
 
-#include "../include/uvzmq.h"
+#include "uvzmq.h"
 
 struct test_data {
     int port;
