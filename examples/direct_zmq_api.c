@@ -1,9 +1,8 @@
-#define UVZMQ_IMPLEMENTATION
 #include <stdio.h>
 #include <string.h>
 #include <zmq.h>
 
-#include "../include/uvzmq.h"
+#include "uvzmq.h"
 
 int main(void) {
     printf("UVZMQ Direct ZMQ API Access Example\n");

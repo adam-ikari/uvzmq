@@ -1,9 +1,8 @@
-#define UVZMQ_IMPLEMENTATION
 #include <stdio.h>
 #include <stdlib.h>
 #include <zmq.h>
 
-#include "../include/uvzmq.h"
+#include "uvzmq.h"
 
 int main(void) {
     printf("Step 1: Create loop\n");

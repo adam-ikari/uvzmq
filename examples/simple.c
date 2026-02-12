@@ -1,10 +1,9 @@
-#define UVZMQ_IMPLEMENTATION
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <zmq.h>
 
-#include "../include/uvzmq.h"
+#include "uvzmq.h"
 
 static void on_recv(uvzmq_socket_t* socket, zmq_msg_t* msg, void* user_data) {
     (void)socket;

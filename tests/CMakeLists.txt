@@ -8,8 +8,7 @@ add_executable(test_uvzmq_socket_new test_uvzmq_socket_new.cpp)
 target_link_libraries(test_uvzmq_socket_new
     gtest
     gtest_main
-    uv_a
-    libzmq-static
+    uvzmq
     pthread
     stdc++
 )
@@ -21,8 +20,7 @@ add_executable(test_uvzmq_socket_close test_uvzmq_socket_close.cpp)
 target_link_libraries(test_uvzmq_socket_close
     gtest
     gtest_main
-    uv_a
-    libzmq-static
+    uvzmq
     pthread
     stdc++
 )
@@ -34,8 +32,7 @@ add_executable(test_uvzmq_socket_free test_uvzmq_socket_free.cpp)
 target_link_libraries(test_uvzmq_socket_free
     gtest
     gtest_main
-    uv_a
-    libzmq-static
+    uvzmq
     pthread
     stdc++
 )
@@ -47,8 +44,7 @@ add_executable(test_uvzmq_getters test_uvzmq_getters.cpp)
 target_link_libraries(test_uvzmq_getters
     gtest
     gtest_main
-    uv_a
-    libzmq-static
+    uvzmq
     pthread
     stdc++
 )
@@ -60,8 +56,7 @@ add_executable(test_uvzmq_error_handling test_uvzmq_error_handling.cpp)
 target_link_libraries(test_uvzmq_error_handling
     gtest
     gtest_main
-    uv_a
-    libzmq-static
+    uvzmq
     pthread
     stdc++
 )
@@ -73,8 +68,7 @@ add_executable(test_uvzmq_integration test_uvzmq_integration.cpp)
 target_link_libraries(test_uvzmq_integration
     gtest
     gtest_main
-    uv_a
-    libzmq-static
+    uvzmq
     pthread
     stdc++
 )
@@ -86,10 +80,19 @@ add_executable(test_uvzmq_edge_cases test_uvzmq_edge_cases.cpp)
 target_link_libraries(test_uvzmq_edge_cases
     gtest
     gtest_main
-    uv_a
-    libzmq-static
+    uvzmq
     pthread
     stdc++
 )
 
 add_test(NAME test_uvzmq_edge_cases COMMAND test_uvzmq_edge_cases)
+
+# Test 8: reaper cleanup test
+add_executable(test_reaper_cleanup test_reaper_cleanup.c)
+target_link_libraries(test_reaper_cleanup uvzmq pthread)
+
+add_test(NAME test_reaper_cleanup COMMAND test_reaper_cleanup)
+
+# Test 9: IO threads performance comparison
+add_executable(test_io_threads_perf test_io_threads_perf.c)
+target_link_libraries(test_io_threads_perf uvzmq pthread)

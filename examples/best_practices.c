@@ -1,4 +1,3 @@
-#define UVZMQ_IMPLEMENTATION
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,7 +5,7 @@
 #include <unistd.h>
 #include <zmq.h>
 
-#include "../include/uvzmq.h"
+#include "uvzmq.h"
 
 static sig_atomic_t stop_requested = 0;
 static sig_atomic_t async_closed = 0;

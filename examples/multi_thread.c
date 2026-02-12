@@ -1,4 +1,3 @@
-#define UVZMQ_IMPLEMENTATION
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,7 +5,7 @@
 #include <unistd.h>
 #include <zmq.h>
 
-#include "../include/uvzmq.h"
+#include "uvzmq.h"
 
 // Server thread data
 struct server_data {

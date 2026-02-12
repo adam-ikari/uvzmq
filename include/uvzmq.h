@@ -2,50 +2,57 @@
  * @mainpage UVZMQ Documentation
  *
  * @section intro Introduction
- * UVZMQ is a minimal integration layer between ZeroMQ and libuv event loop,
- * allowing you to use ZMQ sockets with libuv's event-driven model.
+ * UVZMQ is a libuv-based ZeroMQ integration layer that allows ZeroMQ to
+ * use libuv's event loop instead of creating its own I/O threads.
  *
  * UVZMQ provides **one thing only**: integrating ZMQ sockets with libuv
- * event loop using `uv_poll`. All other ZMQ operations (send, recv, poll,
- * setsockopt, etc.) should be used directly from the ZMQ API.
+ * event loop. All other ZMQ operations (send, recv, poll, setsockopt, etc.)
+ * should be used directly from the ZMQ API.
  *
  * @section features Features
+ * - ✅ **Zero Internal Threads** - uvzmq does NOT create any threads, reuses libuv loop thread
  * - ✅ **Minimal API** - Only essential functions needed
- * - ✅ **Event-driven** - Uses libuv's `uv_poll` for efficient I/O
- * - ✅ **Batch processing** - Optimized for high-throughput scenarios
- * - ✅ **Zero-copy support** - Compatible with ZMQ's zero-copy messaging
+ * - ✅ **Event-driven** - Uses libuv's event loop for all I/O
+ * - ✅ **Direct ZMQ Access** - Full access to ZMQ APIs without abstraction
  * - ✅ **C99 standard** - Works with GCC and Clang compilers
  *
  * @section design Design Principles
- * - **Minimal**: Only 3 core functions + 4 getter functions
+ * - **Zero Thread Creation**: uvzmq completely avoids thread creation
+ * - **Libuv Integration**: ZMQ pollers use libuv event loop instead of own threads
+ * - **Minimal API**: Only 3 core functions + 4 getter functions
  * - **Transparent**: Structure is public, no hidden magic
  * - **Zero-abstraction**: Direct ZMQ API access
- * - **Header-only**: Single file integration
+ *
+ * @section architecture Architecture
+ * Unlike traditional ZeroMQ which creates I/O threads for socket operations,
+ * uvzmq modifies libzmq's poller implementation to use libuv's event loop.
+ *
+ * Traditional ZMQ:
+ * - User Thread -> ZMQ API -> ZMQ I/O Thread (epoll/kqueue) -> Network
+ *
+ * uvzmq + libzmq integration:
+ * - User Thread -> ZMQ API -> libuv Event Loop (uv_poll) -> Network
+ *
+ * This design:
+ * - Reduces thread overhead and context switching
+ * - Simplifies thread synchronization
+ * - Provides consistent event loop semantics with libuv applications
  *
  * @section performance Performance
- * UVZMQ provides significant performance improvements over timer-based polling:
- * - **Timer-based**: ~11.2ms per message
- * - **Event-driven (UVZMQ)**: ~0.056ms per message
- * - **Improvement**: ~200x faster
- *
- * For large messages (>1KB), UVZMQ achieves performance comparable to
- * native ZMQ with only 5-8% overhead due to libuv callback infrastructure.
+ * UVZMQ provides performance benefits by:
+ * - Eliminating ZMQ I/O thread overhead (no thread creation/maintenance)
+ * - Using single event loop for all I/O (libuv + ZMQ)
+ * - Reducing context switches between user and I/O threads
  *
  * @section quickstart Quick Start
- * UVZMQ is a **header-only library**. Include the header file in one of
- * your source files with the implementation macro:
- *
+ * Build uvzmq with the modified libzmq:
  * @code
- * // In ONE of your source files
- * #define UVZMQ_IMPLEMENTATION
- * #include "uvzmq.h"
- *
- * // In other source files
- * #include "uvzmq.h"
+ * mkdir build && cd build
+ * cmake -DUVZMQ_ENABLE_LIBUV_POLLER=ON ..
+ * make
  * @endcode
  *
  * Then use it in your code:
- *
  * @code
  * #include "uvzmq.h"
  * #include <zmq.h>
@@ -60,8 +67,11 @@
  * }
  *
  * int main(void) {
- *     // Create ZMQ context and socket
+ *     // Create ZMQ context (with zero I/O threads!)
  *     void* zmq_ctx = zmq_ctx_new();
+ *     zmq_ctx_set(zmq_ctx, ZMQ_IO_THREADS, 0);  // Critical: 0 I/O threads
+ *
+ *     // Create ZMQ socket
  *     void* zmq_sock = zmq_socket(zmq_ctx, ZMQ_REP);
  *     zmq_bind(zmq_sock, "tcp://0.0.0.0:5555");
  *
@@ -86,6 +96,13 @@
  * }
  * @endcode
  *
+ * @section critical Critical Configuration
+ * When using uvzmq, you MUST:
+ * 1. Set `ZMQ_IO_THREADS=0` on the ZMQ context
+ * 2. Build uvzmq with `-DUVZMQ_ENABLE_LIBUV_POLLER=ON`
+ *
+ * Failure to do so will result in ZMQ still creating I/O threads.
+ *
  * @section api API Reference
  * See the following sections for detailed API documentation:
  * - @ref uvzmq_socket_s - Socket structure
@@ -107,16 +124,14 @@
  * @code
  * git submodule update --init --recursive
  * mkdir build && cd build
- * cmake ..
+ * cmake -DUVZMQ_ENABLE_LIBUV_POLLER=ON ..
  * make
  * @endcode
  *
- * @section batch Batch Processing Configuration
- * Users should use ZMQ API directly for batch size control:
- * @code
- * int batch_size = 8192;
- * zmq_setsockopt(zmq_sock, ZMQ_IN_BATCH_SIZE, &batch_size, sizeof(batch_size));
- * @endcode
+ * Build options:
+ * - `UVZMQ_ENABLE_LIBUV_POLLER=ON` - Enable libuv-based poller (required)
+ * - `UVZMQ_BUILD_EXAMPLES=OFF` - Disable examples
+ * - `UVZMQ_BUILD_BENCHMARKS=OFF` - Disable benchmarks
  *
  * @section threads Thread Safety
  * UVZMQ is **NOT thread-safe**. Each `uvzmq_socket_t` must be used by a
@@ -124,7 +139,7 @@
  *
  * For multi-threaded applications:
  * - Create separate `uvzmq_socket_t` instances for each thread
- * - Use separate ZMQ contexts or configure `ZMQ_IO_THREADS` appropriately
+ * - Use separate libuv event loops for each thread
  * - Do NOT share `uvzmq_socket_t` or `zmq_sock` across threads
  *
  * @section error Error Handling
@@ -151,29 +166,25 @@
  * @endcode
  *
  * @file uvzmq.h
- * @brief Header-only library for integrating ZeroMQ with libuv
+ * @brief Header file for integrating ZeroMQ with libuv
  *
- * UVZMQ provides a minimal integration layer between ZeroMQ and libuv
- * event loop, allowing you to use ZMQ sockets with libuv's event-driven
- * model.
+ * UVZMQ provides a libuv-based ZeroMQ integration layer that allows ZeroMQ
+ * to use libuv's event loop instead of creating its own I/O threads.
  *
  * Design Principles:
- * - Minimal: Only 3 core functions
+ * - Zero Thread Creation: uvzmq does NOT create any threads
+ * - Libuv Integration: ZMQ pollers use libuv event loop
+ * - Minimal API: Only 3 core functions
  * - Transparent: Structure is public, no hidden magic
  * - Zero-abstraction: Direct ZMQ API access
- * - Header-only: Single file integration
  *
- * Usage:
- * @code
- * #define UVZMQ_IMPLEMENTATION
- * #include "uvzmq.h"
- * @endcode
+ * Critical Configuration:
+ * - MUST set ZMQ_IO_THREADS=0 on ZMQ context
+ * - MUST build with -DUVZMQ_ENABLE_LIBUV_POLLER=ON
  */
 
 #ifndef UVZMQ_H
 #define UVZMQ_H
-
-
 
 #include <stddef.h>
 #include <stdint.h>
@@ -319,207 +330,35 @@ int uvzmq_socket_close(uvzmq_socket_t* socket);
  */
 int uvzmq_socket_free(uvzmq_socket_t* socket);
 
+/**
+ * @brief Start the reaper for handling socket cleanup
+ *
+ * When ZMQ_IO_THREADS=0, ZMQ's reaper thread is not created. This function
+ * provides an alternative reaper mechanism that runs in the libuv event loop.
+ * It periodically checks for sockets that need cleanup and handles the
+ * reaping process that would normally be done by the reaper thread.
+ *
+ * @param loop libuv event loop
+ * @return 0 on success, -1 on failure
+ *
+ * @note This should be called once per event loop before any zmq_close()
+ *       operations are performed.
+ * @note The reaper uses a timer with a 10ms interval to check for cleanup work.
+ */
+int uvzmq_reaper_start(uv_loop_t* loop);
+
+/**
+ * @brief Stop the reaper
+ *
+ * Stops the reaper timer and waits for any pending cleanup to complete.
+ *
+ * @param loop libuv event loop
+ * @return 0 on success, -1 on failure
+ */
+int uvzmq_reaper_stop(uv_loop_t* loop);
+
 #ifdef __cplusplus
 }
 #endif
-
-/**
- * @brief Implementation section
- *
- * Define UVZMQ_IMPLEMENTATION in exactly one source file before
- * including this header to enable the implementation.
- *
- * @code
- * #define UVZMQ_IMPLEMENTATION
- * #include "uvzmq.h"
- * @endcode
- */
-#ifdef UVZMQ_IMPLEMENTATION
-
-#include <errno.h>
-#include <stdio.h>
-#include <string.h>
-
-/**
- * @brief Internal libuv poll callback
- *
- * This function is called by libuv when the ZMQ socket becomes readable.
- * It processes all available messages until zmq_msg_recv returns EAGAIN.
- *
- * @param handle libuv poll handle
- * @param status libuv status (unused)
- * @param events libuv events (UV_READABLE)
- */
-static void uvzmq_poll_callback(uv_poll_t* handle, int status, int events) {
-    (void)status;
-    uvzmq_socket_t* socket = (uvzmq_socket_t*)handle->data;
-
-    if (socket->closed) {
-        return;
-    }
-
-    if (events & UV_READABLE && socket->on_recv) {
-        while (1) {
-            zmq_msg_t msg;
-            zmq_msg_init(&msg);
-
-            int recv_rc = zmq_msg_recv(&msg, socket->zmq_sock, ZMQ_DONTWAIT);
-            if (recv_rc >= 0) {
-                socket->on_recv(socket, &msg, socket->user_data);
-            } else if (errno == EAGAIN || errno == EINTR) {
-                zmq_msg_close(&msg);
-                break;
-            } else {
-                zmq_msg_close(&msg);
-                break;
-            }
-        }
-    }
-}
-
-int uvzmq_socket_new(uv_loop_t* loop,
-                     void* zmq_sock,
-                     uvzmq_recv_callback on_recv,
-                     void* user_data,
-                     uvzmq_socket_t** socket) {
-    if (!loop || !zmq_sock || !socket) {
-        return -1;
-    }
-
-    uvzmq_socket_t* sock = (uvzmq_socket_t*)malloc(sizeof(uvzmq_socket_t));
-    if (!sock) {
-        return -1;
-    }
-
-    memset(sock, 0, sizeof(uvzmq_socket_t));
-
-    sock->loop = loop;
-    sock->zmq_sock = zmq_sock;
-    sock->on_recv = on_recv;
-    sock->user_data = user_data;
-    sock->closed = 0;
-    sock->ref_count = 0;
-
-    size_t fd_size = sizeof(sock->zmq_fd);
-    int rc = zmq_getsockopt(zmq_sock, ZMQ_FD, &sock->zmq_fd, &fd_size);
-    if (rc != 0) {
-        free(sock);
-        return -1;
-    }
-
-#ifdef DEBUG
-    /* Validate socket type in debug mode */
-    int socket_type;
-    size_t type_size = sizeof(socket_type);
-    if (zmq_getsockopt(zmq_sock, ZMQ_TYPE, &socket_type, &type_size) == 0) {
-        if (socket_type == ZMQ_PUB || socket_type == ZMQ_PUSH) {
-            fprintf(stderr,
-                    "[WARNING] Socket type %d cannot receive messages. "
-                    "UVZMQ monitors for readable events.\n",
-                    socket_type);
-        }
-    }
-#endif
-
-    uv_poll_t* poll_handle = (uv_poll_t*)malloc(sizeof(uv_poll_t));
-    if (!poll_handle) {
-        free(sock);
-        return -1;
-    }
-
-    poll_handle->data = sock;
-    sock->poll_handle = poll_handle;
-
-    rc = uv_poll_init(loop, poll_handle, sock->zmq_fd);
-    if (rc != 0) {
-        free(poll_handle);
-        free(sock);
-        return -1;
-    }
-
-    rc = uv_poll_start(poll_handle, UV_READABLE, uvzmq_poll_callback);
-    if (rc != 0) {
-        uv_close((uv_handle_t*)poll_handle, NULL);
-        free(poll_handle);
-        free(sock);
-        return -1;
-    }
-
-    *socket = sock;
-    return 0;
-}
-
-/**
- * @brief libuv handle close callback
- *
- * This callback is called when the poll handle is closed.
- * It decrements the reference count and frees the socket if count reaches 0.
- *
- * @param handle libuv handle
- */
-static void on_close_callback(uv_handle_t* handle) {
-    uv_poll_t* poll_handle = (uv_poll_t*)handle;
-    uvzmq_socket_t* socket = (uvzmq_socket_t*)poll_handle->data;
-
-    if (socket && --socket->ref_count == 0) {
-        free(socket);
-    }
-
-    free(poll_handle);
-}
-
-/**
- * @brief Close the UVZMQ socket
- *
- * Sets the closed flag to stop receiving messages.
- * Does not free the socket structure.
- *
- * @param socket uvzmq socket
- * @return 0 on success, -1 on failure
- */
-int uvzmq_socket_close(uvzmq_socket_t* socket) {
-    if (!socket || socket->closed) {
-        return -1;
-    }
-
-    socket->closed = 1;
-    return 0;
-}
-
-/**
- * @brief Free the UVZMQ socket
- *
- * This function:
- * 1. Calls uvzmq_socket_close() if not already closed
- * 2. Stops the poll handle
- * 3. Closes the poll handle asynchronously
- * 4. Frees the socket structure
- *
- * @note Does NOT close the underlying ZMQ socket.
- *       The caller is responsible for closing zmq_sock.
- *
- * @param socket uvzmq socket
- * @return 0 on success, -1 on failure
- */
-int uvzmq_socket_free(uvzmq_socket_t* socket) {
-    if (!socket) {
-        return -1;
-    }
-
-    if (!socket->closed) {
-        uvzmq_socket_close(socket);
-    }
-
-    if (socket->poll_handle) {
-        socket->ref_count++;
-        uv_poll_stop(socket->poll_handle);
-        uv_close((uv_handle_t*)socket->poll_handle, on_close_callback);
-        socket->poll_handle = NULL;
-    }
-
-    return 0;
-}
-
-#endif /* UVZMQ_IMPLEMENTATION */
 
 #endif /* UVZMQ_H */

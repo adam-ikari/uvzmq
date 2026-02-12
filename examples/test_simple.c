@@ -1,4 +1,3 @@
-#define UVZMQ_IMPLEMENTATION
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -6,7 +5,7 @@
 #include <unistd.h>
 #include <zmq.h>
 
-#include "../include/uvzmq.h"
+#include "uvzmq.h"
 
 int main(void) {
     printf("[TEST] Starting simple test\n");
